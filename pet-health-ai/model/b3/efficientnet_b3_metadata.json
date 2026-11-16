@@ -1,0 +1,96 @@
+{
+  "architecture": "efficientnet_b3",
+  "run_id": "20261107T213510Z_a93190",
+  "class_names": [
+    "bacterial_dermatosis",
+    "demodicosis",
+    "dermatitis",
+    "fungal_infection",
+    "healthy",
+    "hypersensitivity"
+  ],
+  "class_to_idx": {
+    "bacterial_dermatosis": 0,
+    "demodicosis": 1,
+    "dermatitis": 2,
+    "fungal_infection": 3,
+    "healthy": 4,
+    "hypersensitivity": 5
+  },
+  "num_classes": 6,
+  "pretrained_weights": "EfficientNet_B3_Weights.IMAGENET1K_V1",
+  "versions": {
+    "python": "3.13.16",
+    "torch": "2.14.1+cu130",
+    "torchvision": "0.29.1+cu130",
+    "pandas": "2.2.3",
+    "numpy": "2.4.6",
+    "sklearn": "1.6.1"
+  },
+  "dataset": {
+    "zip_md5": "9e1a61fb84c6db05844fc8f66d5e62f3",
+    "split_sha256": "49886efd05aeba9fb73feb68d8add56b50f323537ccf6661d7dfe66ab6c96119",
+    "images": 13415,
+    "split_counts": {
+      "train": 9583,
+      "val": 1930,
+      "test": 1902
+    },
+    "group_column": "group6"
+  },
+  "preprocessing": {
+    "color_mode": "RGB",
+    "exif_transpose": true,
+    "resize_shorter_side": 320,
+    "center_crop": 300,
+    "interpolation": "bicubic",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "tta": false,
+    "torchvision_transform": "ImageClassification(\n    crop_size=[300]\n    resize_size=[320]\n    mean=[0.485, 0.456, 0.406]\n    std=[0.229, 0.224, 0.225]\n    interpolation=InterpolationMode.BICUBIC\n)"
+  },
+  "training": {
+    "seed": 42,
+    "batch_size": 16,
+    "num_workers": 2,
+    "warmup_epochs": 3,
+    "finetune_epochs": 12,
+    "patience": 4,
+    "class_weights": true,
+    "class_weight_values": [
+      1.5782278776168823,
+      1.5269279479980469,
+      2.042412519454956,
+      0.4823819696903229,
+      0.7253254652023315,
+      1.2985094785690308
+    ],
+    "selection": "validation_macro_f1_then_lower_validation_loss",
+    "optimizer": "AdamW",
+    "weight_decay": 0.0001,
+    "warmup_head_lr": 0.001,
+    "finetune_backbone_lr": 0.00001,
+    "finetune_head_lr": 0.0001,
+    "unfrozen_feature_blocks": 3,
+    "frozen_batchnorm_statistics": true,
+    "amp": true,
+    "train_transform": "Compose(\n    RandomResizedCrop(size=(300, 300), scale=(0.8, 1.0), ratio=(0.9, 1.1), interpolation=bicubic, antialias=True)\n    RandomHorizontalFlip(p=0.5)\n    RandomRotation(degrees=[-15.0, 15.0], interpolation=bilinear, expand=False, fill=0)\n    ColorJitter(brightness=(0.8, 1.2), contrast=(0.8, 1.2), saturation=(0.9, 1.1), hue=None)\n    ToTensor()\n    Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])\n)"
+  },
+  "best_validation": {
+    "loss": 0.4116539131000171,
+    "accuracy": 0.9259067357512953,
+    "macro_f1": 0.9115690962284068,
+    "phase": "finetune",
+    "epoch": 11,
+    "global_epoch": 14
+  },
+  "weights_sha256": "6e72dbfd51b70f52cd06036d95758faa63251a45e1962650a7958dd94c580aab"
+}
