@@ -7,6 +7,8 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import io
+import hashlib
+from time import perf_counter
 from pathlib import Path
 from typing import Literal
 import torch
@@ -18,8 +20,10 @@ from fastapi import FastAPI, File, Form, Query, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 if __package__:
+    from .care_advice import OPTIONS, care_advice
     from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, load_b3_model
 else:
+    from care_advice import OPTIONS, care_advice
     from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, load_b3_model
 
 app = FastAPI(title="Pet Health AI API")
@@ -229,6 +233,22 @@ def check_is_dog_or_lesion(pil_img: Image.Image) -> bool:
     return best_pos_prob >= 0.45
 
 
+def checkpoint_sha256(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+checkpoint_hashes = {
+    name: checkpoint_sha256(path)
+    for name, path, model in (
+        ("mobilenet", mobilenet_path, model_mobilenet),
+        ("efficientnet", efficientnet_path, model_efficientnet if efficientnet_is_finetuned else None),
+        ("efficientnet_b3", efficientnet_b3_path, model_efficientnet_b3),
+    )
+    if model is not None
+}
+
+
 def predict_with_model(m: nn.Module, input_batch: torch.Tensor):
     """
     ทำนายผลด้วยชุดภาพ TTA (หลายสภาพแสง/ความชัด) แล้วเฉลี่ยความน่าจะเป็น
@@ -244,6 +264,13 @@ def predict_with_model(m: nn.Module, input_batch: torch.Tensor):
     return results
 
 
+@app.get("/care-advice")
+def get_care_advice(label: str):
+    if label not in OPTIONS:
+        raise HTTPException(status_code=422, detail="ไม่พบกลุ่มผลคัดกรอง")
+    return care_advice(label)
+
+
 @app.post("/predict")
 async def predict_endpoint(
     image: UploadFile = File(...),
@@ -253,6 +280,7 @@ async def predict_endpoint(
     b3_tta: bool | None = Query(
         None, description="B3: true = เฉลี่ย TTA 6 แบบตาม B0, false = ภาพเดียว, ไม่ระบุ = ใช้ B3_TTA_OVERRIDE ในโค้ด",
     ),
+    details: bool = False,
 ):
     image_bytes = await image.read()
     try:
@@ -270,14 +298,22 @@ async def predict_endpoint(
     # ด่านที่ 2: ทำนายด้วย TTA Batch (6 มุมมอง/สภาพแสง) เพื่อให้ตอบได้แม่นยำแม้ภาพไม่ชัด
     tta_batch = build_tta_batch(pil_img)
 
-    res_mobilenet = predict_with_model(model_mobilenet, tta_batch) if model_mobilenet else None
-    res_efficientnet = predict_with_model(model_efficientnet, tta_batch) if model_efficientnet else None
+    elapsed = {}
+
+    def evaluate(name, model, batch):
+        started = perf_counter()
+        scores = predict_with_model(model, batch)
+        elapsed[name] = round((perf_counter() - started) * 1000)
+        return scores
+
+    res_mobilenet = evaluate("mobilenet", model_mobilenet, tta_batch) if model_mobilenet else None
+    res_efficientnet = evaluate("efficientnet", model_efficientnet, tta_batch) if model_efficientnet else None
     # B3 เลือกภาพเดียวหรือ TTA 6 แบบตาม B0; ทุกแบบใช้ preprocessing 300×300 เดิม
     use_b3_tta = b3_default_tta if b3_tta is None else b3_tta
     res_efficientnet_b3 = None
     if model_efficientnet_b3 is not None:
         b3_batch = build_b3_batch(pil_img, b3_transforms, device, use_tta=use_b3_tta)
-        res_efficientnet_b3 = predict_with_model(model_efficientnet_b3, b3_batch)
+        res_efficientnet_b3 = evaluate("efficientnet_b3", model_efficientnet_b3, b3_batch)
 
     # แสดงตารางเปรียบเทียบใน Terminal ทุกครั้งที่มีการอัปโหลดรูป
     print("\n" + "=" * 58)
@@ -294,6 +330,38 @@ async def predict_endpoint(
         mode = "TTA 6 แบบ" if use_b3_tta else "ภาพเดียว"
         print(f"  🔶 EfficientNet-B3   : {top_b3['label']} ({top_b3['score']*100:.2f}%) [300×300, {mode}]")
     print("=" * 58 + "\n")
+
+    if details:
+        candidates = (
+            ("efficientnet_b3", efficientnet_b3_path, res_efficientnet_b3,
+             "b3-300-six-view-v1" if use_b3_tta else "b3-300-single-v1"),
+            ("efficientnet", efficientnet_path, res_efficientnet if efficientnet_is_finetuned else None,
+             "resize224-six-view-v1"),
+            ("mobilenet", mobilenet_path, res_mobilenet, "resize224-six-view-v1"),
+        )
+        runs = []
+        for name, path, scores, preprocessing in candidates:
+            if not scores:
+                continue
+            by_label = {item["label"]: item for item in scores}
+            runs.append({
+                "model_name": name,
+                "weights_path": path.relative_to(MODEL_DIR).as_posix(),
+                "weights_sha256": checkpoint_hashes[name],
+                "preprocessing_version": preprocessing,
+                "is_finetuned": True,
+                "inference_ms": elapsed[name],
+                "scores": [by_label[label] for label in CLASSES_LIST],
+            })
+        selected = next((run for run in runs if model_type == "auto" or run["model_name"] == model_type), None)
+        if selected is None:
+            raise HTTPException(status_code=503, detail="ไม่พบโมเดลที่ฝึกแล้วสำหรับบันทึกผลตรวจ")
+        return {
+            "selected_model": selected["model_name"],
+            "runs": runs,
+            "predictions": sorted(selected["scores"], key=lambda item: (-item["score"], item["label"])),
+            "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
+        }
 
     if model_type in ("both", "all"):
         return {
@@ -422,6 +490,7 @@ async def learn_from_feedback(
 
         m.eval()
         torch.save(m.state_dict(), pth)
+        checkpoint_hashes[name] = checkpoint_sha256(pth)
         losses[name] = round(step_loss, 4)
 
     # B3 เก็บเป็น checkpoint ที่ผ่านการประเมิน ไม่ฝึกทับด้วยภาพเดี่ยวผ่าน /learn

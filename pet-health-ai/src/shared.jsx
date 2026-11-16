@@ -1,12 +1,8 @@
 import { DEFAULT_PETS } from "./pet-store.js";
-import { useState, useRef, useMemo, useEffect } from "react";
-import { readDemoSession, endDemoSession } from "./auth-session.js";
+import { useState } from "react";
+import { useAuth, signOut } from "./auth-session.js";
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import {
-  PawPrint, ImagePlus, ScanSearch, ClipboardList, HeartPulse, Search,
-  MapPin, Phone, Clock, Star, X, ChevronRight, AlertCircle, UploadCloud,
-  Cpu, Database, Server, Layout, ChevronLeft, CircleUserRound, Camera, Palette, Bone, Settings, LogOut,
-} from "lucide-react";
+import { AlertCircle, Bone, ChevronRight, HeartPulse, LogOut, Palette, Settings } from "lucide-react";
 import "./App.css";
 
 /* ---------- ข้อมูลตัวอย่าง (แทนที่ด้วยข้อมูลจาก API ภายหลัง) ---------- */
@@ -33,24 +29,6 @@ const ADVICE = {
   default: ["สังเกตอาการต่อเนื่อง 2–3 วัน", "ถ่ายรูปบริเวณที่สงสัยไว้เทียบ", "หากอาการแย่ลง ให้พบสัตวแพทย์"],
 };
 
-/* ---------- เรียกโมเดล: ตั้ง VITE_API_URL แล้วจะยิง POST /predict จริง ---------- */
-async function predict(file) {
-  const base = import.meta.env.VITE_API_URL;
-  if (base) {
-    const fd = new FormData();
-    fd.append("image", file);
-    const res = await fetch(`${base}/predict`, { method: "POST", body: fd });
-    if (!res.ok) throw new Error("predict failed");
-    return res.json(); // [{ label: "Skin Infection", score: 0.78 }, ...]
-  }
-  await new Promise((r) => setTimeout(r, 1200));
-  return [
-    { label: "Skin Infection", score: 0.78 },
-    { label: "Allergic Dermatitis", score: 0.14 },
-    { label: "Healthy", score: 0.08 },
-  ];
-}
-
 const fmtDate = (s) =>
   new Date(s).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -73,27 +51,25 @@ const PageHead = ({ icon: Icon, title, sub }) => (
 
 function Header({ theme = 1, onCycleTheme }) {
   const navigate = useNavigate();
-  function logout() {
-    endDemoSession();
-    navigate('/login', { replace: true });
-    window.scrollTo(0, 0);
-  }
-  const [user, setUser] = useState(readDemoSession);
+  const { user } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
-  useEffect(() => {
-    const update = event => { setUser(event.detail); setAccountOpen(false); };
-    const sync = () => setUser(readDemoSession());
-    window.addEventListener('pet-health-session', update);
-    window.addEventListener('storage', sync);
-    return () => { window.removeEventListener('pet-health-session', update); window.removeEventListener('storage', sync); };
-  }, []);
+  const [logoutError, setLogoutError] = useState('');
+  async function logout() {
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+      window.scrollTo(0, 0);
+    } catch {
+      setLogoutError('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่');
+    }
+  }
   const items = [["/check", "ตรวจสุขภาพ"], ["/history", "ประวัติการตรวจ"], ["/clinics", "คลินิกใกล้ฉัน"], ["/about", "เกี่ยวกับระบบ"]];
   return (
     <header className="top">
       <Link to="/check" className="brand"><span className="brand-wordmark">Doo Pet</span><span className="brand-partner">× Machine Learning</span><Bone className="brand-bone" size={23} aria-hidden="true" /></Link>
       <nav>{items.map(([to, t]) => <NavLink key={to} to={to} end={to === "/"}>{t}</NavLink>)}</nav>
       <button type="button" className="theme-cycle" onClick={onCycleTheme} aria-label={`ชุดสีปัจจุบัน: ธีม ${theme} กดเปลี่ยนเป็นธีม ${theme % 5 + 1}`} title={["", "มอคค่า–งาช้าง", "ฟ้า–น้ำเงิน", "เขียวเสจ–ครีม", "ม่วงลาเวนเดอร์", "ชมพูกุหลาบ"][theme]}><Palette size={17} /><span aria-live="polite">ธีม {theme}</span></button>
-      <div className="account-wrap">{user ? <><button className="account" aria-label="บัญชีผู้ใช้" aria-expanded={accountOpen} onClick={() => setAccountOpen(!accountOpen)}><img className="account-avatar" src={user.avatar} alt="" /><span className="account-indicator" /></button>{accountOpen && <div className="account-panel"><div className="account-panel-profile"><img src={user.avatar} alt="" /><div><strong>{user.name}</strong><small>{user.email}</small></div></div><span className="account-demo-tag">บัญชีทดลอง · Mockup</span><div className="account-panel-actions"><Link to="/check" onClick={() => setAccountOpen(false)}><span className="account-action-icon"><HeartPulse size={18} /></span><span>ตรวจสุขภาพน้องหมา</span><ChevronRight size={16} /></Link><Link to="/settings" onClick={() => setAccountOpen(false)}><span className="account-action-icon"><Settings size={18} /></span><span>ตั้งค่าบัญชี</span><ChevronRight size={16} /></Link></div><button type="button" className="account-logout" onClick={logout}><LogOut size={18} /><span>ออกจากระบบ</span></button></div>}</> : <Link to="/login" className="account-login">Login</Link>}</div>
+      <div className="account-wrap">{user ? <><button className="account" aria-label="บัญชีผู้ใช้" aria-expanded={accountOpen} onClick={() => setAccountOpen(!accountOpen)}><img className="account-avatar" src={user.avatar} alt="" /><span className="account-indicator" /></button>{accountOpen && <div className="account-panel"><div className="account-panel-profile"><img src={user.avatar} alt="" /><div><strong>{user.name}</strong><small>{user.email}</small></div></div>{logoutError && <p role="alert">{logoutError}</p>}<div className="account-panel-actions"><Link to="/check" onClick={() => setAccountOpen(false)}><span className="account-action-icon"><HeartPulse size={18} /></span><span>ตรวจสุขภาพน้องหมา</span><ChevronRight size={16} /></Link><Link to="/settings" onClick={() => setAccountOpen(false)}><span className="account-action-icon"><Settings size={18} /></span><span>ตั้งค่าบัญชี</span><ChevronRight size={16} /></Link></div><button type="button" className="account-logout" onClick={logout}><LogOut size={18} /><span>ออกจากระบบ</span></button></div>}</> : <Link to="/login" className="account-login">Login</Link>}</div>
     </header>
   );
 }

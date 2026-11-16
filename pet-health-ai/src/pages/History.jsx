@@ -1,4 +1,7 @@
 import { usePets } from "../pet-store.js";
+import { useAuth } from "../auth-session.js";
+import { useHistory } from "../health-store.js";
+import CareAdvice from "../CareAdvice.jsx";
 import { diseaseName } from "../disease-labels.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -6,7 +9,7 @@ import {
   AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardCheck,
   Clock3, PawPrint, RotateCcw, Search, ShieldCheck, Stethoscope, X,
 } from "lucide-react";
-import {  HISTORY, fmtDate, Avatar } from "../shared.jsx";
+import { fmtDate, Avatar } from "../shared.jsx";
 
 const riskText = { low: "ความเสี่ยงต่ำ", mid: "ความเสี่ยงปานกลาง", high: "ความเสี่ยงสูง" };
 
@@ -21,7 +24,9 @@ function ResultBadge({ record }) {
 }
 
 export default function History() {
-  const PETS = usePets();
+  const { user } = useAuth();
+  const { rows: PETS, loading: petsLoading, error: petsError } = usePets();
+  const { rows: HISTORY, loading, error } = useHistory();
   const [query, setQuery] = useState("");
   const [pet, setPet] = useState("");
   const [risk, setRisk] = useState("");
@@ -38,18 +43,18 @@ export default function History() {
     low: HISTORY.filter((item) => item.risk === "low" && item.disease.toLowerCase() !== "healthy").length,
     mid: HISTORY.filter((item) => item.risk === "mid" && item.disease.toLowerCase() !== "healthy").length,
     high: HISTORY.filter((item) => item.risk === "high" && item.disease.toLowerCase() !== "healthy").length,
-  }), []);
+  }), [HISTORY]);
 
   const records = useMemo(() => {
     const filtered = HISTORY.filter((item) => {
       const animal = PETS.find((entry) => entry.id === item.pet);
       const matchesSearch = !query || `${animal?.name ?? ""} ${animal?.breed ?? ""} ${item.disease} ${diseaseName(item.disease)}`.toLowerCase().includes(query.toLowerCase());
-      return matchesSearch && (!pet || item.pet === Number(pet)) && (!risk || item.risk === risk);
+      return matchesSearch && (!pet || item.pet === pet) && (!risk || item.risk === risk);
     });
     return filtered.sort((a, b) => sort === "new"
       ? new Date(b.date) - new Date(a.date)
       : new Date(a.date) - new Date(b.date));
-  }, [query, pet, risk, sort, PETS]);
+  }, [query, pet, risk, sort, PETS, HISTORY]);
 
   const pages = Math.max(1, Math.ceil(records.length / perPage));
   const visible = records.slice((page - 1) * perPage, page * perPage);
@@ -94,6 +99,9 @@ export default function History() {
     };
   }, [selected]);
 
+  if (!user) return <p>กรุณา <Link to="/login">เข้าสู่ระบบ</Link> เพื่อดูประวัติการตรวจ</p>;
+  if (loading || petsLoading) return <p role="status">กำลังโหลดประวัติการตรวจ…</p>;
+  if (error || petsError) return <p role="alert">{error || petsError}</p>;
   return (
     <div className="history-page">
       <section className="history-hero">
@@ -154,6 +162,7 @@ export default function History() {
           <button ref={closeRef} className="history-modal-close" onClick={closeDetails} aria-label="ปิด"><X size={20} /></button>
           <div className="history-modal-pet"><Avatar pet={selected.animal} size={72} /><div><h2 id="history-detail-title">ผลการตรวจของ {selected.animal.name}</h2><span>{selected.animal.breed} · อายุ {selected.animal.age} ปี</span></div></div>
           <div className="history-modal-result"><small><Clock3 size={15} />{fmtDate(selected.date)}</small><strong>{diseaseName(selected.disease)}</strong><ResultBadge record={selected} /></div>
+          <div className="history-modal-care"><CareAdvice key={selected.id} disease={selected.disease} saved={selected.care_advice ?? undefined} /></div>
           <p className="history-modal-note">ระบบบันทึกผลการตรวจเบื้องต้นนี้เพื่อใช้อ้างอิง หากสัตว์เลี้ยงมีอาการผิดปกติ ควรปรึกษาสัตวแพทย์</p>
         </section>
       </div>}

@@ -1,23 +1,29 @@
+import { loadCareAdvice } from "../care-advice.js";
+import CareAdvice from "../CareAdvice.jsx";
 import { usePets } from "../pet-store.js";
+import { useAuth } from "../auth-session.js";
+import { saveAnalysis, useHistory } from "../health-store.js";
 import { diseaseName } from "../disease-labels.js";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PawPrint, UploadCloud, ImagePlus, Camera, Check as CheckIcon, HeartPulse, ClipboardList, CalendarDays, MapPin, ArrowRight, X, Sparkles, AlertCircle, Pencil, Bone } from "lucide-react";
-import {  HISTORY, ADVICE, fmtDate, Avatar, Risk, Disclaimer } from "../shared.jsx";
+import { fmtDate, Avatar, Risk, Disclaimer } from "../shared.jsx";
 
-async function predict(file) {
-  const base = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const apiBase = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+async function predict(file, detailed) {
   const fd = new FormData();
   fd.append("image", file);
   let response;
   try {
-    response = await fetch(`${base}/predict`, { method: "POST", body: fd });
+    response = await fetch(`${apiBase}/predict${detailed ? "?details=true" : ""}`, { method: "POST", body: fd });
   } catch {
     throw new Error("เชื่อมต่อ AI ไม่ได้ กรุณาเปิด API โมเดลก่อนลองอีกครั้ง");
   }
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.detail || "วิเคราะห์ภาพไม่สำเร็จ กรุณาลองภาพอื่นอีกครั้ง");
-  if (!Array.isArray(payload)) throw new Error("รูปแบบผลลัพธ์จาก AI ไม่ถูกต้อง");
+  const scores = detailed ? payload?.predictions : payload;
+  if (!Array.isArray(scores)) throw new Error("รูปแบบผลลัพธ์จาก AI ไม่ถูกต้อง");
   const labels = {
     bacterial_dermatosis: "Bacterial Dermatosis",
     demodicosis: "Demodicosis",
@@ -26,16 +32,25 @@ async function predict(file) {
     healthy: "Healthy",
     hypersensitivity: "Hypersensitivity",
   };
-  return payload.map(({ label, score }) => ({ label: labels[label] || label, score: Number(score) }))
+  const predictions = scores.map(({ label, score }) => ({ label: labels[label] || label, score: Number(score) }))
     .filter((item) => item.label && Number.isFinite(item.score))
     .sort((a, b) => b.score - a.score);
+  return { ...payload, predictions };
+}
+
+function predictionRisk(top) {
+  return !top || top.label === "Healthy" ? "low" : top.score >= .7 ? "high" : top.score >= .4 ? "mid" : "low";
 }
 
 export default function Check() {
-  const PETS = usePets();
-  const [petId, setPetId] = useState(PETS[1]?.id ?? PETS[0].id);
+  const { user } = useAuth();
+  const { rows: PETS, loading: petsLoading, error: petsError } = usePets();
+  const { rows: history } = useHistory();
+  const [petId, setPetId] = useState("");
   const [file, setFile] = useState(null); const [preview, setPreview] = useState("");
   const [drag, setDrag] = useState(false); const [state, setState] = useState("idle");
+  const [care, setCare] = useState(null);
+  const adviceRequest = useRef(0);
   const [result, setResult] = useState([]); const [err, setErr] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideSeen, setGuideSeen] = useState(() => {
@@ -47,10 +62,10 @@ export default function Check() {
   const input = useRef(null);
   const resultHeading = useRef(null);
   const uploadHeading = useRef(null);
-  const pet = PETS.find((item) => item.id === Number(petId)) || PETS[0];
-  const latest = HISTORY.find((item) => item.pet === pet.id) || HISTORY[0];
+  const pet = PETS.find((item) => item.id === petId) || PETS[0];
+  const latest = history.filter((item) => item.pet === pet?.id).at(-1);
   const top = result[0];
-  const risk = !top || top.label === "Healthy" ? "low" : top.score >= .7 ? "high" : top.score >= .4 ? "mid" : "low";
+  const risk = predictionRisk(top);
   const stage = state === "done" ? 4 : state === "loading" ? 2 : 1;
 
   useEffect(() => {
@@ -84,18 +99,30 @@ export default function Check() {
     if (!selected || state === "loading") return;
     if (!/^image\/(jpeg|png|webp)$/.test(selected.type)) { setErr("รองรับไฟล์ JPG, PNG หรือ WEBP เท่านั้น"); return; }
     if (selected.size > 10 * 1024 * 1024) { setErr("ไฟล์มีขนาดเกิน 10MB กรุณาเลือกไฟล์ใหม่"); return; }
+    adviceRequest.current += 1;
     setErr(""); setFile(selected); setState("idle"); setResult([]);
     setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(selected); });
   };
-  const clear = () => { if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(""); setState("idle"); setResult([]); setErr(""); };
+  const clear = () => { adviceRequest.current += 1; if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(""); setState("idle"); setResult([]); setErr(""); };
   const run = async () => {
     if (!file) return;
+    const request = ++adviceRequest.current;
+    setCare(null);
     setState("loading"); setErr("");
     try {
-      const predictions = await predict(file);
+      const detailed = Boolean(user && pet);
+      const response = await predict(file, detailed);
+      const { predictions } = response;
       if (!predictions.length) throw new Error("โมเดลไม่ส่งผลการวิเคราะห์กลับมา");
       setResult(predictions);
       setState("done");
+      const top = predictions[0];
+      const advice = await loadCareAdvice(top.label);
+      if (adviceRequest.current === request) setCare(advice);
+      if (user && pet) {
+        try { await saveAnalysis(user.id, pet.id, file, response, predictionRisk(top), advice); }
+        catch { if (adviceRequest.current === request) setErr("วิเคราะห์ภาพสำเร็จ แต่บันทึกประวัติไม่สำเร็จ"); }
+      }
     } catch (error) {
       setState("error");
       setErr(error.message || "วิเคราะห์ภาพไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง");
@@ -124,13 +151,12 @@ export default function Check() {
           <section className="check-result check-result-inline" aria-labelledby="check-result-heading">
             <h2 id="check-result-heading" ref={resultHeading} tabIndex={-1}><HeartPulse size={23} />ผลการวิเคราะห์เบื้องต้น</h2>
             <div className="check-result-pet">
-              <img src={preview} alt={`รูปที่ใช้วิเคราะห์ของ ${pet.name}`} />
-              <div><small>ผลตรวจของ</small><strong>{pet.name}</strong><span>{file?.name}</span></div>
+              <img src={preview} alt={`รูปที่ใช้วิเคราะห์ของ ${pet?.name || "สุนัข"}`} />
+              <div><small>ผลตรวจของ</small><strong>{pet?.name || "สุนัข"}</strong><span>{file?.name}</span></div>
               <span className="check-result-complete"><CheckIcon size={16} />วิเคราะห์เสร็จแล้ว</span>
             </div>
             <div className="check-primary-result"><small>ผลวิเคราะห์หลัก</small><div className="check-result-summary"><strong>{diseaseName(top.label)}</strong><Risk level={risk} /></div></div>
-            <h3>คำแนะนำเบื้องต้น</h3>
-            <ul>{(ADVICE[top.label] || ADVICE.default).map((advice) => <li key={advice}>{advice}</li>)}</ul>
+            <CareAdvice key={preview} disease={top.label} saved={care} />
             <details className="check-result-details">
               <summary>ดูผลวิเคราะห์เพิ่มเติม</summary>
               <p>3 อันดับที่โมเดลประเมินได้คะแนนสูงสุด</p>
@@ -163,8 +189,8 @@ export default function Check() {
       </section>
 
       <aside className="check-sidebar">
-        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2><div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><select disabled={state === "loading" || state === "done"} value={petId} onChange={(event) => setPetId(event.target.value)} aria-label="เลือกสัตว์เลี้ยง">{PETS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div></section>
-        <section className="latest-card"><div className="latest-heading"><h2><ClipboardList size={22} />ประวัติการตรวจล่าสุด</h2><Link to="/history">ดูทั้งหมด <ArrowRight size={16} /></Link></div><Link className="latest-entry" to="/history"><img src={pet.img} alt={pet.name} /><div><small><CalendarDays size={13} />{fmtDate(latest.date).split(" เวลา")[0]}</small><strong>กลุ่มโรค : {diseaseName(latest.disease)}</strong></div><Risk level={latest.risk} /></Link></section>
+        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2>{pet ? <div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><select disabled={state === "loading" || state === "done"} value={pet.id} onChange={(event) => setPetId(event.target.value)} aria-label="เลือกสัตว์เลี้ยง">{PETS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div> : <p>{petsLoading ? "กำลังโหลดสัตว์เลี้ยง…" : petsError || (user ? <Link to="/settings">เพิ่มสัตว์เลี้ยงเพื่อเก็บประวัติการตรวจ</Link> : <Link to="/login">เข้าสู่ระบบเพื่อเก็บประวัติการตรวจ</Link>)}</p>}</section>
+        <section className="latest-card"><div className="latest-heading"><h2><ClipboardList size={22} />ประวัติการตรวจล่าสุด</h2><Link to="/history">ดูทั้งหมด <ArrowRight size={16} /></Link></div>{latest && pet ? <Link className="latest-entry" to="/history"><img src={pet.img} alt={pet.name} /><div><small><CalendarDays size={13} />{fmtDate(latest.date).split(" เวลา")[0]}</small><strong>กลุ่มโรค : {diseaseName(latest.disease)}</strong></div><Risk level={latest.risk} /></Link> : <p>ยังไม่มีประวัติการตรวจ</p>}</section>
         <section className="check-tips" aria-labelledby="check-tips-heading">
           <div className="tip-copy">
             <h3 id="check-tips-heading"><HeartPulse size={20} fill="currentColor" />คำแนะนำ</h3>

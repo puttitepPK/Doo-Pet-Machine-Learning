@@ -1,38 +1,58 @@
-import { profileAvatar } from "./profile-avatars.js";
-// UI prototype only. No credentials or passwords are persisted or sent to a server.
-const KEY = 'pet-health-demo-session';
+import { useSyncExternalStore } from 'react';
+import { profileAvatar } from './profile-avatars.js';
+import { supabase, requireSupabase } from './supabase.js';
 
-export function readDemoSession() {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(KEY) || localStorage.getItem(KEY) || 'null');
-    if (value && !value.id) value.id = value.email;
-    if (value) value.avatar = profileAvatar(value.avatar);
-    return value?.mode === 'mock' && typeof value.name === 'string' && typeof value.email === 'string' ? value : null;
-  } catch { return null; }
+let state = { user: null, loading: Boolean(supabase), recovery: false };
+const listeners = new Set();
+
+supabase?.auth.onAuthStateChange((event, session) => {
+  const account = session?.user;
+  const user = account ? {
+    id: account.id,
+    email: account.email,
+    name: account.user_metadata?.name || account.email?.split('@')[0] || 'ผู้ใช้',
+    avatar: profileAvatar(account.user_metadata?.avatar),
+  } : null;
+  state = { user, loading: false, recovery: Boolean(user && (event === 'PASSWORD_RECOVERY' || state.recovery)) };
+  listeners.forEach(listener => listener());
+});
+
+function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+export function useAuth() {
+  return useSyncExternalStore(subscribe, () => state);
 }
 
-export function startDemoSession({ name, email, remember }) {
-  const user = { id: crypto.randomUUID(), avatar: profileAvatar(), name: name.trim() || email.split('@')[0], email, mode: 'mock' };
-  try {
-    localStorage.removeItem(KEY);
-    sessionStorage.removeItem(KEY);
-    (remember ? localStorage : sessionStorage).setItem(KEY, JSON.stringify(user));
-  } catch { /* The current tab can still show the demo with storage disabled. */ }
-  window.dispatchEvent(new CustomEvent('pet-health-session', { detail: user }));
-  return user;
+const redirectTo = () => window.location.origin + window.location.pathname;
+
+export async function authenticate({ name, email, password, signup, remember }) {
+  const { auth } = requireSupabase();
+  if (remember) sessionStorage.removeItem('doo-pet-session-only');
+  else sessionStorage.setItem('doo-pet-session-only', '1');
+  const { data, error } = signup
+    ? await auth.signUp({ email, password, options: { emailRedirectTo: redirectTo(), data: { name } } })
+    : await auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return Boolean(data.session);
 }
 
-export function endDemoSession() {
-  try { localStorage.removeItem(KEY); sessionStorage.removeItem(KEY); } catch { /* Storage may be disabled. */ }
-  window.dispatchEvent(new CustomEvent('pet-health-session', { detail: null }));
+export async function sendPasswordReset(email) {
+  const { error } = await requireSupabase().auth.resetPasswordForEmail(email, { redirectTo: redirectTo() });
+  if (error) throw error;
 }
 
-export function updateDemoProfile({ name, email, avatar }) {
-  const current = readDemoSession();
-  if (!current) throw new Error('กรุณาเข้าสู่ระบบก่อน');
-  const user = { ...current, name: name.trim(), email: email.trim(), avatar: profileAvatar(avatar ?? current.avatar) };
-  const storage = sessionStorage.getItem(KEY) ? sessionStorage : localStorage;
-  storage.setItem(KEY, JSON.stringify(user));
-  window.dispatchEvent(new CustomEvent('pet-health-session', { detail: user }));
-  return user;
+export async function updateAccount(attributes) {
+  const { error } = await requireSupabase().auth.updateUser(attributes);
+  if (error) throw error;
+  if (attributes.password && state.recovery) {
+    state = { ...state, recovery: false };
+    listeners.forEach(listener => listener());
+  }
+}
+
+export async function signOut() {
+  const { error } = await requireSupabase().auth.signOut({ scope: 'local' });
+  if (error) throw error;
 }

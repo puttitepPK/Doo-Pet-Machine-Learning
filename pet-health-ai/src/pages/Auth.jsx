@@ -14,7 +14,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { startDemoSession } from "../auth-session";
+import { authenticate, sendPasswordReset } from "../auth-session.js";
 import "./Auth.css";
 
 function Field({ label, icon: Icon, password = false, ...props }) {
@@ -69,20 +69,24 @@ export default function Auth({ mode = "login" }) {
       return;
     }
     setBusy(true);
-    await new Promise((resolve) => setTimeout(resolve, 850));
-    if (reset) {
-      setResetSent(true);
-    } else {
-      startDemoSession({
-        name: signup ? String(data.get("name")) : "",
-        email: email.trim(),
-        remember,
-      });
-      navigate("/", { replace: true });
-      window.scrollTo(0, 0);
-      return;
+    try {
+      if (reset) {
+        await sendPasswordReset(email.trim());
+        setResetSent(true);
+      } else {
+        const signedIn = await authenticate({ name: String(data.get('name') ?? '').trim(), email: email.trim(), password, signup, remember });
+        if (signedIn) {
+          navigate('/', { replace: true });
+          window.scrollTo(0, 0);
+        } else {
+          setResetSent(true);
+        }
+      }
+    } catch (failure) {
+      setError(failure.message || 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -141,11 +145,9 @@ export default function Auth({ mode = "login" }) {
                   <span className="auth-success-icon">
                     <Mail size={28} />
                   </span>
-                  <h2>ทดลองรีเซ็ตรหัสผ่าน</h2>
+                  <h2>{signup ? "ยืนยันอีเมล" : "รีเซ็ตรหัสผ่าน"}</h2>
                   <p>
-                    รับคำขอสำหรับ {email} แล้ว
-                    <br />
-                    นี่คือโหมดจำลอง จึงยังไม่มีอีเมลถูกส่งออกไป
+                    {signup ? "เปิดลิงก์ยืนยันการสมัครที่ส่งไปยัง" : "หากอีเมลนี้มีบัญชีอยู่ กรุณาเปิดลิงก์ตั้งรหัสผ่านใหม่ที่ส่งไปยัง"} {email}
                   </p>
                   <button
                     className="auth-submit"
@@ -153,6 +155,7 @@ export default function Auth({ mode = "login" }) {
                     onClick={() => {
                       setReset(false);
                       setResetSent(false);
+                      if (signup) navigate("/login");
                     }}
                   >
                     กลับไปเข้าสู่ระบบ <ArrowRight size={17} />
@@ -188,7 +191,7 @@ export default function Auth({ mode = "login" }) {
                   </div>
                   <p className="auth-form-intro">
                     {reset
-                      ? "กรอกอีเมลเพื่อทดลองขั้นตอนกู้คืนบัญชี"
+                      ? "กรอกอีเมลเพื่อรับลิงก์กู้คืนบัญชี"
                       : signup
                         ? "เริ่มต้นดูแลเพื่อนซี้ไปด้วยกัน"
                         : "ยินดีต้อนรับกลับมา ดูแลเพื่อนซี้กันต่อเลย"}
@@ -290,7 +293,7 @@ export default function Auth({ mode = "login" }) {
                         ) : (
                           <>
                             {reset
-                              ? "ทดลองส่งลิงก์รีเซ็ต"
+                              ? "ส่งลิงก์รีเซ็ต"
                               : signup
                                 ? "สร้างบัญชี"
                                 : "เข้าสู่ระบบ"}{" "}
@@ -316,16 +319,7 @@ export default function Auth({ mode = "login" }) {
                 </>
               )}
             </div>
-            {/* <div className="auth-mock-note">
-              <span>
-                <ScanLine size={15} /> โหมดทดลองใช้งาน
-              </span>
-              <p>
-                ใช้ข้อมูลตัวอย่างเพื่อทดลองได้ ไม่เก็บรหัสผ่าน
-                <br />
-                ยังไม่ได้เชื่อมต่อระบบบัญชีผู้ใช้จริง
-              </p>
-            </div> */}
+            
           </div>
           <footer className="auth-footer">
             <span>© {new Date().getFullYear()} Doo Pet × Machine Learning</span>

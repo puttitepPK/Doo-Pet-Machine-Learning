@@ -558,3 +558,10 @@ body{background:radial-gradient(circle at 50% -20%,#fffdfa 0,#f7f0e6 48%,#eee2d3
 @media(prefers-reduced-motion:no-preference){.check-banner-paw{animation:banner-paw-drift var(--paw-duration) ease-in-out infinite;animation-delay:var(--paw-delay)}}
 @media(max-width:760px){.check-banner-paw{width:calc(var(--paw-size)*.7);height:calc(var(--paw-size)*.7)}}
 :root[data-theme="2"] .check-banner-paws{display:none}
+
+.history-modal{max-height:calc(100dvh - 40px);overflow-y:auto}
+.history-modal-care{margin-top:16px;color:inherit}
+.history-modal-care h3{margin:0 0 8px;font-size:16px}
+.history-modal-care ul{margin:0;padding-inline-start:22px}
+.history-modal-care li+li{margin-top:7px}
+.history-modal-care small{display:block;margin-top:8px}

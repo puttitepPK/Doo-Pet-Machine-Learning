@@ -1,38 +1,55 @@
-import { useState } from "react";
+import { ArrowUpRight, Camera, ScanLine, ClipboardList, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
-import { PawPrint, ImagePlus, ScanSearch, ClipboardList, HeartPulse, Search, MapPin, Phone, Clock, Star, X, ChevronRight, AlertCircle, UploadCloud, Cpu, Database, Server, Layout, ChevronLeft, Camera } from "lucide-react";
-import { PETS, HISTORY, CLINICS, RISK, ADVICE, fmtDate, Avatar, Risk, Disclaimer, PageHead } from "../shared.jsx";
+import "./About.css";
+
+const steps = [
+  { icon: Camera, title: "แนบรูปผิวหนัง", description: "เลือกรูปที่เห็นบริเวณที่กังวลชัดเจน" },
+  { icon: ScanLine, title: "ดูผลคัดกรอง", description: "ระบบแสดงกลุ่มผิวหนังที่ภาพมีลักษณะคล้ายที่สุด" },
+  { icon: ClipboardList, title: "อ่านคำแนะนำ", description: "ดูสิ่งที่ควรสังเกต วิธีดูแลเบื้องต้น และสิ่งที่ควรเลี่ยง" },
+];
 
 export default function About() {
-  const tech = [[Layout, "Frontend", "React.js"], [Server, "Backend", "Node.js + Express"], [Cpu, "Machine Learning", "TensorFlow / PyTorch"], [Database, "Database", "MySQL"]];
-  const flow = [[ImagePlus, "อัปโหลดรูปภาพ"], [ScanSearch, "ประมวลผลภาพ"], [Cpu, "Machine Learning"], [ClipboardList, "ผลการตรวจ"], [HeartPulse, "คำแนะนำ"]];
   return (
-    <>
-      <PageHead icon={PawPrint} title="เกี่ยวกับระบบ" sub="เรียนรู้เพิ่มเติมเกี่ยวกับโครงการ Doo Pet × Machine Learning" />
-      <section className="about-panel">
-        <div className="about-main">
-          <div className="about-photo">
-            <img src="/dogs/about-dog.jpg" alt="สุนัขโกลเด้นรีทรีฟเวอร์" />
-          </div>
-          <div className="about-detail">
-            <section>
-              <h2>รายละเอียดโครงการ</h2>
-              <p>Doo Pet × Machine Learning เป็นระบบช่วยตรวจสุขภาพสุนัขเบื้องต้นจากรูปภาพ โดยใช้เทคโนโลยี Machine Learning เพื่อช่วยให้เจ้าของสัตว์เลี้ยงสามารถประเมินอาการเบื้องต้นก่อนตัดสินใจพาไปพบสัตวแพทย์</p>
-            </section>
-            <section className="about-process">
-              <h2>วิธีการทำงานของระบบ</h2>
-              <ol>
-                {flow.map(([Icon, label], index) => <li key={label}><span><Icon size={27} strokeWidth={1.8} /></span><b>{label}</b>{index < flow.length - 1 && <ChevronRight className="flow-arrow" size={21} />}</li>)}
-              </ol>
-            </section>
-          </div>
+    <div className="doo-about">
+      <section className="doo-about-hero" aria-labelledby="doo-about-title">
+        <div className="doo-about-intro">
+          <p className="doo-about-label">เกี่ยวกับระบบ</p>
+          <h1 id="doo-about-title">ดูแลผิวหนังน้องหมา <em>เริ่มจากรูปเดียว</em></h1>
+          <p className="doo-about-description">Doo Pet ช่วยคัดกรองลักษณะผิวหนังสุนัขจากภาพ พร้อมคำแนะนำในการสังเกตอาการและดูแลเบื้องต้นสำหรับเจ้าของ</p>
+          <Link className="doo-about-action" to="/check">
+            เริ่มตรวจสุขภาพ <ArrowUpRight size={20} aria-hidden="true" />
+          </Link>
         </div>
-        <div className="about-bottom">
-          <section className="about-tech"><h2>เทคโนโลยีที่ใช้</h2><ul>{tech.map(([Icon, a, b]) => <li key={a}><span><Icon size={21} /></span><div><small>{a}</small><b>{b}</b></div></li>)}</ul></section>
-          <aside className="about-warning"><AlertCircle size={22} /><div><b>ข้อจำกัดของระบบ</b><p>ผลลัพธ์ที่ได้เป็นเพียงการคัดกรองเบื้องต้นจาก AI ไม่สามารถใช้แทนการวินิจฉัยจากสัตวแพทย์ได้</p></div></aside>
-        </div>
+        <figure className="doo-about-portrait">
+          <img src="/dogs/about-dog.jpg" alt="สุนัขโกลเด้นรีทรีฟเวอร์" fetchPriority="high" />
+        </figure>
       </section>
-    </>
+
+      <section className="doo-about-workflow" aria-labelledby="doo-about-workflow-title">
+        <h2 id="doo-about-workflow-title">ระบบทำงานอย่างไร</h2>
+        <ol>
+          {steps.map(({ icon: Icon, title, description }, index) => (
+            <li key={title}>
+              <div className="doo-about-step-sign">
+                <Icon size={22} strokeWidth={1.7} aria-hidden="true" />
+                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              </div>
+              <div>
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <aside className="doo-about-scope" aria-labelledby="doo-about-scope-title">
+        <ShieldCheck size={24} strokeWidth={1.7} aria-hidden="true" />
+        <div>
+          <h2 id="doo-about-scope-title">ขอบเขตการคัดกรอง</h2>
+          <p>ระบบประเมินเฉพาะลักษณะผิวหนังสุนัขที่เห็นในภาพ หากอาการยังอยู่หรือแย่ลง ควรให้สัตวแพทย์ตรวจเพื่อวินิจฉัย</p>
+        </div>
+      </aside>
+    </div>
   );
 }
-

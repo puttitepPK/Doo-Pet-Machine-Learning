@@ -1,0 +1,153 @@
+.doo-about {
+  --doo-ink: #38271f;
+  --doo-muted: #6f5547;
+  --doo-accent: #713f2c;
+  --doo-paper: #fbf3e8;
+  --doo-line: #dfcbb9;
+  width: min(100%, 73rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 2rem) clamp(.75rem, 2.5vw, 1.5rem) clamp(2rem, 5vw, 4rem);
+  color: var(--doo-ink);
+}
+
+.doo-about-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.16fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--doo-line);
+  border-radius: 26px;
+  background-color: var(--doo-paper);
+}
+
+.doo-about-intro {
+  align-self: center;
+  min-width: 0;
+  padding: clamp(1.55rem, 5vw, 4.5rem);
+}
+
+.doo-about-label {
+  margin: 0 0 1rem;
+  color: var(--doo-accent);
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.doo-about h1 {
+  margin: 0;
+  color: var(--doo-ink);
+  font-size: clamp(2rem, 4.45vw, 3.9rem);
+  font-weight: 700;
+  line-height: 1.23;
+  text-wrap: balance;
+}
+
+.doo-about h1 em {
+  display: block;
+  color: var(--doo-accent);
+  font-style: normal;
+}
+
+.doo-about-description {
+  max-width: 32rem;
+  margin: 1.15rem 0 1.55rem;
+  color: var(--doo-muted);
+  font-size: clamp(.95rem, 1.25vw, 1.05rem);
+  line-height: 1.8;
+}
+
+.doo-about-action {
+  display: inline-flex;
+  align-items: center;
+  gap: .7rem;
+  min-height: 48px;
+  padding: .65rem 1.15rem;
+  border-radius: 10px;
+  background: var(--doo-accent);
+  color: #fffaf5;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.doo-about-action:hover { background: #522c21; color: #fffaf5; }
+.doo-about-action:focus-visible { outline: 3px solid var(--doo-accent); outline-offset: 4px; }
+
+.doo-about-portrait {
+  position: relative;
+  min-height: clamp(23rem, 40vw, 32rem);
+  margin: 0;
+  background: #d9b594;
+}
+
+.doo-about-portrait img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 42%;
+}
+
+.doo-about-workflow { margin-top: clamp(1.75rem, 4vw, 3rem); }
+
+.doo-about-workflow h2 {
+  margin: 0 0 1rem;
+  color: var(--doo-ink);
+  font-size: clamp(1.25rem, 2.5vw, 1.7rem);
+}
+
+.doo-about-workflow ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--doo-line);
+  border-bottom: 1px solid var(--doo-line);
+}
+
+.doo-about-workflow li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  gap: .8rem;
+  padding: 1.15rem clamp(.75rem, 2vw, 1.4rem);
+}
+
+.doo-about-workflow li:first-child { padding-inline-start: 0; }
+.doo-about-workflow li + li { border-inline-start: 1px solid var(--doo-line); }
+
+.doo-about-step-sign {
+  display: grid;
+  justify-items: center;
+  gap: .3rem;
+  padding: .55rem .55rem .35rem;
+  border-radius: 8px;
+  background: #f1e2d3;
+  color: var(--doo-accent);
+  font-size: .7rem;
+  font-weight: 600;
+}
+
+.doo-about-workflow h3 { margin: 0 0 .25rem; color: var(--doo-ink); font-size: 1rem; }
+.doo-about-workflow li p, .doo-about-scope p { margin: 0; color: var(--doo-muted); font-size: .91rem; line-height: 1.65; }
+
+.doo-about-scope {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  margin-top: 1.2rem;
+  padding: .9rem 1rem;
+  border-inline-start: 3px solid var(--doo-accent);
+  background: #f7eee4;
+}
+
+.doo-about-scope svg { flex: none; color: var(--doo-accent); }
+.doo-about-scope h2 { margin: 0 0 .16rem; color: var(--doo-ink); font-size: .95rem; }
+
+@media (max-width: 720px) {
+  .doo-about-hero, .doo-about-workflow ol { grid-template-columns: minmax(0, 1fr); }
+  .doo-about-portrait { min-height: clamp(13rem, 60vw, 23rem); }
+  .doo-about-workflow li { padding-inline: 0; }
+  .doo-about-workflow li + li { border-inline-start: none; border-top: 1px solid var(--doo-line); }
+}
