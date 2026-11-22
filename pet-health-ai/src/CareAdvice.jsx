@@ -19,6 +19,6 @@ export default function CareAdvice({ disease, saved }) {
     {care ? <ul aria-live="polite">{care.items.map((advice, index) => (
       <li key={careHeadings[index]}><strong>{careHeadings[index]}</strong> — {advice}</li>
     ))}</ul> : <p role="status">กำลังเตรียมคำแนะนำ…</p>}
-    {care?.source === "gemini" && <small>จัดคำแนะนำด้วย Gemini</small>}
+
   </>;
 }

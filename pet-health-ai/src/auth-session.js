@@ -1,3 +1,4 @@
+import { usePhotoUrls } from "./photo-storage.js";
 import { useSyncExternalStore } from 'react';
 import { profileAvatar } from './profile-avatars.js';
 import { supabase, requireSupabase } from './supabase.js';
@@ -22,7 +23,9 @@ function subscribe(listener) {
   return () => listeners.delete(listener);
 }
 export function useAuth() {
-  return useSyncExternalStore(subscribe, () => state);
+  const snapshot = useSyncExternalStore(subscribe, () => state);
+  const resolvePhoto = usePhotoUrls([snapshot.user?.avatar]);
+  return { ...snapshot, user: snapshot.user ? { ...snapshot.user, avatarSource: snapshot.user.avatar, avatar: resolvePhoto(snapshot.user.avatar) } : null };
 }
 
 const redirectTo = () => window.location.origin + window.location.pathname;

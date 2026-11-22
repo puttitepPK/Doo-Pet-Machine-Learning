@@ -1,3 +1,4 @@
+import { confidenceLevel } from "../confidence.js";
 import { loadCareAdvice } from "../care-advice.js";
 import CareAdvice from "../CareAdvice.jsx";
 import { usePets } from "../pet-store.js";
@@ -8,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PawPrint, UploadCloud, ImagePlus, Camera, Check as CheckIcon, HeartPulse, ClipboardList, CalendarDays, MapPin, ArrowRight, X, Sparkles, AlertCircle, Pencil, Bone } from "lucide-react";
 import { fmtDate, Avatar, Risk, Disclaimer } from "../shared.jsx";
+import Dropdown from "../Dropdown.jsx";
 
 const apiBase = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
@@ -39,7 +41,7 @@ async function predict(file, detailed) {
 }
 
 function predictionRisk(top) {
-  return !top || top.label === "Healthy" ? "low" : top.score >= .7 ? "high" : top.score >= .4 ? "mid" : "low";
+  return confidenceLevel(top?.score);
 }
 
 export default function Check() {
@@ -189,7 +191,7 @@ export default function Check() {
       </section>
 
       <aside className="check-sidebar">
-        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2>{pet ? <div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><select disabled={state === "loading" || state === "done"} value={pet.id} onChange={(event) => setPetId(event.target.value)} aria-label="เลือกสัตว์เลี้ยง">{PETS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div> : <p>{petsLoading ? "กำลังโหลดสัตว์เลี้ยง…" : petsError || (user ? <Link to="/settings">เพิ่มสัตว์เลี้ยงเพื่อเก็บประวัติการตรวจ</Link> : <Link to="/login">เข้าสู่ระบบเพื่อเก็บประวัติการตรวจ</Link>)}</p>}</section>
+        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2>{pet ? <div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><Dropdown disabled={state === "loading" || state === "done"} value={pet.id} onChange={setPetId} ariaLabel="เลือกสัตว์เลี้ยง" chevron={false} options={PETS.map((item) => ({ value: item.id, label: item.name }))} /><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div> : <p>{petsLoading ? "กำลังโหลดสัตว์เลี้ยง…" : petsError || (user ? <Link to="/settings">เพิ่มสัตว์เลี้ยงเพื่อเก็บประวัติการตรวจ</Link> : <Link to="/login">เข้าสู่ระบบเพื่อเก็บประวัติการตรวจ</Link>)}</p>}</section>
         <section className="latest-card"><div className="latest-heading"><h2><ClipboardList size={22} />ประวัติการตรวจล่าสุด</h2><Link to="/history">ดูทั้งหมด <ArrowRight size={16} /></Link></div>{latest && pet ? <Link className="latest-entry" to="/history"><img src={pet.img} alt={pet.name} /><div><small><CalendarDays size={13} />{fmtDate(latest.date).split(" เวลา")[0]}</small><strong>กลุ่มโรค : {diseaseName(latest.disease)}</strong></div><Risk level={latest.risk} /></Link> : <p>ยังไม่มีประวัติการตรวจ</p>}</section>
         <section className="check-tips" aria-labelledby="check-tips-heading">
           <div className="tip-copy">

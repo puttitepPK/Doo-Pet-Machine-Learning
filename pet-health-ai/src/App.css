@@ -565,3 +565,112 @@ body{background:radial-gradient(circle at 50% -20%,#fffdfa 0,#f7f0e6 48%,#eee2d3
 .history-modal-care ul{margin:0;padding-inline-start:22px}
 .history-modal-care li+li{margin-top:7px}
 .history-modal-care small{display:block;margin-top:8px}
+
+/* Center the history sign-in prompt within the viewport. */
+.page-layout-history:has(.history-login-prompt){
+  min-height:100vh;
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding-block:var(--nav-clearance);
+}
+.history-login-prompt{text-align:center}
+.history-login-prompt{
+  position:relative;
+  isolation:isolate;
+  width:min(100%,620px);
+  padding:clamp(30px,5vw,52px) clamp(22px,4vw,48px);
+  border:1px solid var(--line);
+  border-radius:32px;
+  background:var(--card);
+  box-shadow:0 18px 60px color-mix(in srgb,var(--pri) 10%,transparent);
+  color:var(--ink);
+}
+.history-login-prompt::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto;
+  height:150px;
+  z-index:-1;
+  border-radius:32px 32px 0 0;
+  background:linear-gradient(180deg,var(--tint),transparent);
+}
+.history-login-icon{
+  position:relative;
+  display:grid;
+  place-items:center;
+  width:100px;
+  height:100px;
+  margin:0 auto 26px;
+  border:6px solid var(--card);
+  border-radius:50%;
+  background:var(--tint);
+  color:var(--pri-d);
+  box-shadow:0 6px 18px color-mix(in srgb,var(--pri) 12%,transparent);
+}
+.history-login-icon>span{
+  position:absolute;
+  right:-4px;
+  bottom:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border:3px solid var(--card);
+  border-radius:50%;
+  background:var(--pri);
+  color:var(--card);
+}
+.history-login-eyebrow{display:block;margin-bottom:8px;color:var(--pri-d);font-size:13px;font-weight:500;letter-spacing:.4px}
+.history-login-prompt h1{margin:0 0 18px;font-size:clamp(24px,3.4vw,34px);font-weight:600;line-height:1.45}
+.history-login-message{font-size:clamp(20px,2.6vw,26px);line-height:1.65;font-weight:500}
+.history-login-message a{color:var(--pri-d);text-decoration-thickness:2px;text-underline-offset:5px}
+.history-login-break{display:none}
+.history-login-description{max-width:370px;margin:14px auto 26px;color:var(--mut);font-size:15px;line-height:1.8}
+.history-login-button{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:52px;padding:12px 30px;border:1px solid var(--pri-d);border-radius:16px;background:var(--pri-d);color:#fff;font-size:18px;font-weight:500;text-decoration:none;box-shadow:0 6px 15px color-mix(in srgb,var(--pri) 20%,transparent)}
+.history-login-button:hover{background:var(--ink);border-color:var(--ink)}
+@media(prefers-reduced-motion:no-preference){.history-login-button{transition:background .18s,border-color .18s,transform .18s}.history-login-button:hover{transform:translateY(-2px)}}
+@media(max-width:480px){
+  .history-login-prompt{border-radius:24px;padding:30px 20px}
+  .history-login-prompt::before{border-radius:24px 24px 0 0}
+  .history-login-icon{width:86px;height:86px;margin-bottom:20px}
+  .history-login-icon>svg{width:41px;height:41px}
+  .history-login-break{display:block}
+  .history-login-description{font-size:14px}
+  .history-login-button{width:100%;font-size:17px}
+}
+/* Center empty messages in the space below each sidebar card heading. */
+.check-sidebar .pet-info-card:has(>p),
+.check-sidebar .latest-card:has(>p){display:flex;flex-direction:column}
+.check-sidebar .pet-info-card>p,
+.check-sidebar .latest-card>p{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;margin:0;padding:16px 8px;min-width:0}
+/* Mobile navigation: four visible tabs instead of a horizontal scroller. */
+@media(max-width:760px){
+  .top{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:10px;width:calc(100% - 20px);border-radius:20px}
+  .top .brand{min-width:0;max-width:100%;justify-self:start}
+  .top .theme-cycle{grid-column:2;grid-row:1;min-height:40px}
+  .top .account-wrap{grid-column:3;grid-row:1;min-width:0}
+  .top .account{display:grid;width:36px;height:36px}
+  .top .account-login{min-height:40px;padding:6px 12px}
+  .top nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-column:1/-1;grid-row:2;width:100%;min-width:0;gap:3px;padding:0;overflow:visible}
+  .top nav a{display:flex;align-items:center;justify-content:center;min-width:0;min-height:44px;padding:5px 3px;font-size:11px;line-height:1.5;white-space:normal;text-align:center;overflow-wrap:anywhere;border-radius:12px}
+  .page-layout{--nav-clearance:calc(142px + env(safe-area-inset-top,0px))}
+}
+/* App-style bottom navigation is limited to mobile. */
+.top nav .mobile-nav-icon{display:none}
+@media(max-width:760px){
+  /* A filtered ancestor would trap the fixed bottom navigation inside the header. */
+  .top{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--card);height:auto;min-height:60px}
+  .top nav{position:fixed;inset:auto 0 0;z-index:20;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:none;margin:0;gap:4px;padding:8px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));border-top:1px solid var(--line);border-radius:20px 20px 0 0;background:var(--card);box-shadow:0 -5px 24px #48332012;overflow:visible}
+  .top nav a{flex-direction:column;gap:4px;min-height:54px;padding:6px 2px;font-size:10px;line-height:1.4;border-radius:14px;color:var(--mut)}
+  .top nav .mobile-nav-icon{display:block;flex:none}
+  .top nav a.active{background:var(--tint);color:var(--pri-d);box-shadow:none}
+  .page-layout{--nav-clearance:calc(94px + env(safe-area-inset-top,0px));padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+  html{scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+}
+/* Dog emblem leads the wordmark at all screen sizes. */
+.top .brand{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;max-width:none;min-width:0}
+.top .brand-symbol{display:block;width:38px;height:38px;object-fit:contain;flex:none}
+.top .brand-copy{display:flex;align-items:baseline;gap:6px;min-width:0}
+@media(max-width:1000px){.top .brand-copy{flex-direction:column;align-items:flex-start;gap:2px}}
+@media(max-width:760px){.top .brand{display:flex;gap:6px}.top .brand-symbol{width:32px;height:32px}.top .brand-copy{line-height:1.2}.top .brand-wordmark{font-size:17px}.top .brand-partner{font-size:8px;white-space:nowrap}}

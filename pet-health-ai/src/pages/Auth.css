@@ -145,3 +145,14 @@ main.auth-layout{padding:0;margin:0;width:100%;max-width:none}
 /* Constrain the raster wordmark independently of its intrinsic dimensions. */
 .auth-visual-image .auth-left-logo{left:50%;top:38%;width:76%;max-width:360px;min-width:0;transform:translate(-50%,-50%);display:block;overflow:hidden;line-height:0}
 .auth-visual-image .auth-left-logo>.auth-left-logo-image{display:block;position:static;width:100%;max-width:100%;min-width:0;height:auto;max-height:130px;object-fit:contain;margin:0;transform:none;flex:none}
+
+/* Demo autofill sits beneath the login card. */
+.auth-demo-button{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;margin-top:18px;padding:13px 16px;border:1px solid var(--line);border-radius:16px;background:var(--tint);color:var(--pri-d);font:inherit;font-size:14px;font-weight:500;line-height:1.6;box-shadow:0 5px 16px #6046300d;cursor:pointer}
+.auth-demo-button svg{flex:none}
+.auth-demo-button:hover:not(:disabled){background:var(--card);border-color:var(--pri)}
+.auth-demo-button:focus-visible{outline:2px solid var(--pri);outline-offset:4px}
+.auth-demo-button:disabled{opacity:.55;cursor:wait}
+@media(max-width:480px){.auth-demo-button{gap:8px;padding-inline:12px;font-size:13px}}
+/* Share the navbar dog emblem on login and signup. */
+.auth-page .auth-logo>span{background:transparent}
+.auth-logo .auth-brand-symbol{display:block;width:100%;height:100%;object-fit:contain}

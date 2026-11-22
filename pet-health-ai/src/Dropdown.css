@@ -1,0 +1,47 @@
+/* Themed dropdown (replaces native <select> popups, which browsers draw square and unstyled). */
+.dd-trigger{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px;width:100%;height:100%;padding:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.dd-trigger:disabled{cursor:not-allowed;opacity:.6}
+.dd-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-chevron{flex:none;opacity:.75;transition:transform .25s cubic-bezier(.3,1.4,.5,1)}
+.dd-trigger[aria-expanded="true"] .dd-chevron{transform:rotate(180deg)}
+
+.dd-list{position:fixed;z-index:2000;box-sizing:border-box;margin:0;padding:6px;overflow-y:auto;overscroll-behavior:contain;list-style:none;
+  border:1px solid color-mix(in srgb,var(--line,#eadccf) 85%,#fff);border-radius:16px;
+  background:color-mix(in srgb,var(--card,#fffdf9) 96%,transparent);backdrop-filter:blur(10px);
+  box-shadow:0 18px 40px rgba(64,44,30,.16),0 3px 10px rgba(64,44,30,.07);
+  font-family:Prompt,"Noto Sans Thai",system-ui,sans-serif;color:var(--ink,#4b392b);
+  transform-origin:top center;animation:dd-open .2s cubic-bezier(.2,.9,.3,1.15) both;scrollbar-width:thin}
+.dd-list.up{transform-origin:bottom center;animation-name:dd-open-up}
+.dd-option{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:38px;padding:8px 12px;border-radius:11px;font-size:13px;line-height:1.4;white-space:nowrap;cursor:pointer;user-select:none;
+  animation:dd-item .22s ease both;animation-delay:calc(var(--n) * 22ms + 30ms);transition:background .15s,color .15s,padding .15s}
+.dd-option+.dd-option{margin-top:2px}
+.dd-option.active{background:color-mix(in srgb,var(--tint,#f3e8db) 75%,#fff);padding-left:15px}
+.dd-option.selected{color:var(--pri-d,#7d604a);font-weight:600}
+.dd-option.selected.active,.dd-option.selected{background:color-mix(in srgb,var(--tint,#f3e8db) 90%,#fff)}
+.dd-option svg{flex:none;color:var(--pri-d,#7d604a)}
+
+@keyframes dd-open{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes dd-open-up{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes dd-item{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+/* Fit each existing field wrapper. */
+.history-select:after,.hchart-pet:after{display:none}
+.history-select .dd-trigger{color:#634c3a;font-size:12px}
+.history-select .dd-chevron{color:#937157}
+.hchart-pet{padding-right:12px}
+.hchart-pet .dd-trigger{color:var(--hc-ink);font-size:12px}
+.pet-meta label .dd-trigger{width:auto;max-width:150px;color:#574333;font-weight:600}
+.clinic-sort .dd-trigger{width:auto;max-width:120px;color:#5c4636;font-size:11px}
+.settings-fields .dd-trigger{height:auto;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:13px;transition:border-color .18s,box-shadow .18s}
+.settings-fields .dd-trigger:focus-visible,.settings-fields .dd-trigger[aria-expanded="true"]{border-color:var(--pri);box-shadow:0 0 0 3px color-mix(in srgb,var(--pri) 16%,transparent)}
+.dd-trigger:focus-visible{outline:none}
+.history-select:has(.dd-trigger:focus-visible),.hchart-pet:has(.dd-trigger:focus-visible),.clinic-sort:has(.dd-trigger:focus-visible),.pet-meta label:has(.dd-trigger:focus-visible){outline:3px solid color-mix(in srgb,var(--pri,#a78368) 35%,#fff);outline-offset:2px}
+
+@media(max-width:480px){
+  .history-select .dd-trigger{font-size:11px}
+  .dd-option{min-height:42px;font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .dd-list,.dd-option{animation:none}
+  .dd-chevron,.dd-option{transition:none}
+}

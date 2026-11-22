@@ -55,6 +55,12 @@ export default function Auth({ mode = "login" }) {
   const [remember, setRemember] = useState(false);
   const [email, setEmail] = useState("");
 
+  function fillDemoAccount() {
+    if (busy) return;
+    setEmail("Demo@gmail.com");
+    setPassword("Demo1234");
+    setError("");
+  }
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
@@ -132,7 +138,7 @@ export default function Auth({ mode = "login" }) {
           <div className="auth-center">
             <Link to="/" className="auth-logo">
               <span>
-                <PawPrint size={29} />
+                <img className="auth-brand-symbol" src="/dogs/doopet-navbar-symbol.png" width="43" height="43" alt="" />
               </span>
               Doo Pet <b>× ML</b>
             </Link>
@@ -319,7 +325,18 @@ export default function Auth({ mode = "login" }) {
                 </>
               )}
             </div>
-            
+            {!signup && !reset && !resetSent && (
+              <button
+                type="button"
+                className="auth-demo-button"
+                onClick={fillDemoAccount}
+                disabled={busy}
+              >
+                <UserRound size={20} aria-hidden="true" />
+                <span>คลิก เพื่อเข้าบัญชี demo พร้อมเข้าใช้</span>
+                <ArrowRight size={18} aria-hidden="true" />
+              </button>
+            )}
           </div>
           <footer className="auth-footer">
             <span>© {new Date().getFullYear()} Doo Pet × Machine Learning</span>

@@ -3,6 +3,7 @@ import {
   ArrowUpRight, Clock3, LocateFixed, LoaderCircle, MapPin, Minus,
   Navigation, PawPrint, Phone, Plus, Search, Stethoscope,
 } from "lucide-react";
+import Dropdown from "../Dropdown.jsx";
 
 const TILE_SIZE = 256;
 const SEARCH_RADIUS_METERS = 20000;
@@ -228,9 +229,7 @@ export default function Clinics() {
           <div className="clinic-results-head">
             <div><h2><PawPrint size={22} /> คลินิกใกล้คุณ</h2><p>{hasLocation ? `แสดง ${clinics.length} แห่งที่ใกล้ที่สุดในรัศมี ${SEARCH_RADIUS_METERS / 1000} กม.` : "เปิดตำแหน่งเพื่อค้นหาคลินิกใกล้คุณ"}</p></div>
             <label className="clinic-sort">เรียงตาม
-              <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="เรียงคลินิกตาม">
-                <option value="distance">ระยะใกล้สุด</option><option value="name">ชื่อคลินิก</option>
-              </select>
+              <Dropdown value={sort} onChange={setSort} ariaLabel="เรียงคลินิกตาม" options={[{ value: "distance", label: "ระยะใกล้สุด" }, { value: "name", label: "ชื่อคลินิก" }]} />
             </label>
           </div>
           <label className="clinic-search"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ค้นหาชื่อคลินิก" aria-label="ค้นหาชื่อคลินิก" /></label>

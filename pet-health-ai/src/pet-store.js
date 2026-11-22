@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { usePhotoUrls } from "./photo-storage.js";
 import { useOwnedRows } from './health-store.js';
 import { requireSupabase } from './supabase.js';
 
@@ -10,7 +12,12 @@ export const DEFAULT_PETS = [
 
 
 export function usePets() {
-  return useOwnedRows('pets', 'id,name,breed,age,sex,img', 'created_at', 'doo-pet-pets');
+  const pets = useOwnedRows('pets', 'id,name,breed,age,sex,img', 'created_at', 'doo-pet-pets');
+  const resolve = usePhotoUrls(pets.rows.map(pet => pet.img));
+  const sources = pets.rows.map(pet => resolve(pet.img));
+  const urlKey = JSON.stringify(sources);
+  const rows = useMemo(() => { const urls = JSON.parse(urlKey); return pets.rows.map((pet, index) => ({ ...pet, imageSource: pet.img, img: urls[index] })); }, [pets.rows, urlKey]);
+  return { ...pets, rows };
 }
 export async function savePet(owner, { id, ...pet }) {
   const table = requireSupabase().from('pets');

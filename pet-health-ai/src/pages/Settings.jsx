@@ -1,3 +1,5 @@
+import PhotoPicker from "../PhotoPicker.jsx";
+import { uploadPhoto, discardPhoto } from "../photo-storage.js";
 import { PROFILE_AVATARS, profileAvatar } from "../profile-avatars.js";
 import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
@@ -5,24 +7,30 @@ import { Bone, UserRound, Mail, LockKeyhole, PawPrint, Plus, Pencil, Check, Chev
 import { useAuth, updateAccount } from "../auth-session.js";
 import { DEFAULT_PETS, savePet as persistPet, usePets } from "../pet-store.js";
 import "./Settings.css";
+import Dropdown from "../Dropdown.jsx";
 
 function PetEditor({ animal, onSave, onCancel, busy }) {
-  const [image, setImage] = useState(animal?.img || DEFAULT_PETS[0].img);
+  const [image, setImage] = useState(animal?.imageSource || animal?.img || DEFAULT_PETS[0].img);
+  const [photo, setPhoto] = useState(null);
+  const [photoPreparing, setPhotoPreparing] = useState(false);
   return <form className="settings-form" onSubmit={event => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
-    onSave({ id: animal?.id, name: String(values.get('name')).trim(), breed: String(values.get('breed')).trim(), age: Number(values.get('age')), sex: values.get('sex'), img: image });
+    onSave({ id: animal?.id, name: String(values.get('name')).trim(), breed: String(values.get('breed')).trim(), age: Number(values.get('age')), sex: values.get('sex'), img: image, photo });
   }}>
     <div className="settings-form-title"><PawPrint size={20} /><h3>{animal ? `แก้ไขข้อมูล ${animal.name}` : 'เพิ่มเพื่อนซี้ตัวใหม่'}</h3></div>
-    <fieldset className="pet-avatar-picker"><legend>เลือกรูปแทนตัวน้อง</legend><div>{DEFAULT_PETS.map(pet => <button key={pet.id} type="button" aria-label={`เลือกรูป ${pet.name}`} aria-pressed={image === pet.img} className={image === pet.img ? 'selected' : ''} onClick={() => setImage(pet.img)}><img src={pet.img} alt="" />{image === pet.img && <Check size={14} />}</button>)}</div></fieldset>
-    <div className="settings-fields"><label>ชื่อน้อง<input name="name" required maxLength={40} defaultValue={animal?.name} placeholder="เช่น Buddy" /></label><label>สายพันธุ์<input name="breed" required maxLength={70} defaultValue={animal?.breed} placeholder="เช่น Golden Retriever" /></label><label>อายุ (ปี)<input name="age" type="number" min="0" max="40" step="0.1" required defaultValue={animal?.age ?? 1} /></label><label>เพศ<select name="sex" defaultValue={animal?.sex || 'ผู้'}><option value="ผู้">ผู้</option><option value="เมีย">เมีย</option><option value="ไม่ระบุ">ไม่ระบุ</option></select></label></div>
-    <div className="pet-editor-actions"><button className="settings-save" type="submit" disabled={busy}><Save size={17} />{animal ? "บันทึกข้อมูลน้อง" : "เพิ่มสัตว์เลี้ยง"}</button>{onCancel && <button className="settings-save secondary" type="button" onClick={onCancel}>ยกเลิก</button>}</div>
+    <PhotoPicker value={image} photo={photo} onChange={setPhoto} onProcessingChange={setPhotoPreparing} disabled={busy} label="รูปสัตว์เลี้ยง" />
+    <fieldset disabled={busy} className="pet-avatar-picker"><legend>เลือกรูปแทนตัวน้อง</legend><div>{DEFAULT_PETS.map(pet => <button key={pet.id} type="button" aria-label={`เลือกรูป ${pet.name}`} aria-pressed={image === pet.img} className={image === pet.img ? 'selected' : ''} onClick={() => { setImage(pet.img); setPhoto(null); }}><img src={pet.img} alt="" />{image === pet.img && <Check size={14} />}</button>)}</div></fieldset>
+    <div className="settings-fields"><label>ชื่อน้อง<input name="name" required maxLength={40} defaultValue={animal?.name} placeholder="เช่น Buddy" /></label><label>สายพันธุ์<input name="breed" required maxLength={70} defaultValue={animal?.breed} placeholder="เช่น Golden Retriever" /></label><label>อายุ (ปี)<input name="age" type="number" min="0" max="40" step="0.1" required defaultValue={animal?.age ?? 1} /></label><label>เพศ<Dropdown name="sex" defaultValue={animal?.sex || 'ผู้'} ariaLabel="เพศ" options={[{ value: 'ผู้', label: 'ผู้' }, { value: 'เมีย', label: 'เมีย' }, { value: 'ไม่ระบุ', label: 'ไม่ระบุ' }]} /></label></div>
+    <div className="pet-editor-actions"><button className="settings-save" type="submit" disabled={busy || photoPreparing}><Save size={17} />{animal ? "บันทึกข้อมูลน้อง" : "เพิ่มสัตว์เลี้ยง"}</button>{onCancel && <button className="settings-save secondary" type="button" onClick={onCancel}>ยกเลิก</button>}</div>
   </form>;
 }
 
 export default function Settings() {
   const { user, recovery } = useAuth();
-  const [avatar, setAvatar] = useState(() => profileAvatar(user?.avatar));
+  const [avatar, setAvatar] = useState(() => profileAvatar(user?.avatarSource || user?.avatar));
+  const [avatarPhoto, setAvatarPhoto] = useState(null);
+  const [avatarPreparing, setAvatarPreparing] = useState(false);
   const { rows: pets, loading, error: petError } = usePets();
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -49,10 +57,13 @@ export default function Settings() {
     if (busy) return;
     if (!value.name || !value.breed) { setError('กรุณากรอกชื่อและสายพันธุ์ให้ครบ'); return; }
     setBusy(true);
+    let uploaded;
     try {
-      const id = await persistPet(user.id, value);
+      const { photo, ...fields } = value;
+      if (photo) uploaded = await uploadPhoto(user.id, photo);
+      const id = await persistPet(user.id, { ...fields, img: uploaded || fields.img });
       setEditingId(id); setAdding(false); setError(''); setMessage(adding ? `เพิ่ม ${value.name} ใน My pet แล้ว เลือกน้องในหน้าตรวจได้เลย` : 'บันทึกข้อมูล My pet แล้ว ใช้รูปและข้อมูลใหม่ในหน้าตรวจได้เลย');
-    } catch { setError('บันทึกข้อมูลสัตว์เลี้ยงไม่สำเร็จ กรุณาลองใหม่'); }
+    } catch (failure) { if (uploaded) await discardPhoto(uploaded).catch(() => {}); setError(failure.message || 'บันทึกข้อมูลสัตว์เลี้ยงไม่สำเร็จ กรุณาลองใหม่'); }
     finally { setBusy(false); }
   };
   return <div className="settings-page">
@@ -77,14 +88,17 @@ export default function Settings() {
             const email = String(values.get('email')).trim();
             const emailChanged = email !== user.email;
             setBusy(true);
+            let uploaded;
             try {
-              await updateAccount({ data: { name: String(values.get('name')).trim(), avatar },
+              if (avatarPhoto) uploaded = await uploadPhoto(user.id, avatarPhoto);
+              await updateAccount({ data: { name: String(values.get('name')).trim(), avatar: uploaded || avatar },
                 ...(emailChanged ? { email } : {}) });
+              if (uploaded) { setAvatar(uploaded); setAvatarPhoto(null); }
               setMessage(emailChanged ? 'บันทึกโปรไฟล์แล้ว กรุณาตรวจอีเมลเพื่อยืนยันการเปลี่ยนที่อยู่' : 'บันทึกโปรไฟล์แล้ว');
               setError('');
-            } catch (failure) { setError(failure.message || 'บันทึกไม่สำเร็จ กรุณาลองใหม่'); }
+            } catch (failure) { if (uploaded) await discardPhoto(uploaded).catch(() => {}); setError(failure.message || 'บันทึกไม่สำเร็จ กรุณาลองใหม่'); }
             finally { setBusy(false); }
-          }}><div className="settings-card-heading"><span><UserRound size={21} /></span><div><h2>ข้อมูลบัญชี</h2><p>ให้เราเรียกคุณในแบบที่คุณชอบ</p></div></div><fieldset className="settings-profile-picker"><legend>เลือกรูปโปรไฟล์ของคุณ</legend><div>{PROFILE_AVATARS.map(item => <button type="button" key={item.src} aria-label={item.label} aria-pressed={avatar === item.src} className={avatar === item.src ? 'selected' : ''} onClick={() => setAvatar(item.src)}><img src={item.src} alt="" />{avatar === item.src && <span><Check size={13} /></span>}</button>)}</div><p>เลือกรูปแล้วกดบันทึกการเปลี่ยนแปลง</p></fieldset><div className="settings-fields"><label>ชื่อผู้ใช้<div className="settings-input-icon"><UserRound size={17} /><input name="name" required maxLength={60} autoComplete="nickname" defaultValue={user.name} /></div></label><label>อีเมล<div className="settings-input-icon"><Mail size={17} /><input name="email" type="email" required maxLength={254} autoComplete="email" defaultValue={user.email} /></div></label></div><button className="settings-save" type="submit" disabled={busy}><Save size={17} />บันทึกการเปลี่ยนแปลง</button></form>
+          }}><div className="settings-card-heading"><span><UserRound size={21} /></span><div><h2>ข้อมูลบัญชี</h2><p>ให้เราเรียกคุณในแบบที่คุณชอบ</p></div></div><PhotoPicker value={avatar} photo={avatarPhoto} onChange={setAvatarPhoto} onProcessingChange={setAvatarPreparing} disabled={busy} label="รูปโปรไฟล์บัญชี" /><fieldset disabled={busy} className="settings-profile-picker"><legend>เลือกรูปโปรไฟล์ของคุณ</legend><div>{PROFILE_AVATARS.map(item => <button type="button" key={item.src} aria-label={item.label} aria-pressed={avatar === item.src} className={avatar === item.src ? 'selected' : ''} onClick={() => { setAvatar(item.src); setAvatarPhoto(null); }}><img src={item.src} alt="" />{avatar === item.src && <span><Check size={13} /></span>}</button>)}</div><p>เลือกรูปแล้วกดบันทึกการเปลี่ยนแปลง</p></fieldset><div className="settings-fields"><label>ชื่อผู้ใช้<div className="settings-input-icon"><UserRound size={17} /><input name="name" required maxLength={60} autoComplete="nickname" defaultValue={user.name} /></div></label><label>อีเมล<div className="settings-input-icon"><Mail size={17} /><input name="email" type="email" required maxLength={254} autoComplete="email" defaultValue={user.email} /></div></label></div><button className="settings-save" type="submit" disabled={busy || avatarPreparing}><Save size={17} />บันทึกการเปลี่ยนแปลง</button></form>
           <form className="settings-card settings-form" onSubmit={async event => {
             event.preventDefault();
             if (busy) return;

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { confidenceLevel } from './confidence.js';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from './auth-session.js';
 import { requireSupabase } from './supabase.js';
 
@@ -34,7 +35,9 @@ export function useOwnedRows(table, columns, order, eventName) {
 }
 
 export function useHistory() {
-  return useOwnedRows('doo_pet_history', 'id,pet,date,disease,risk,score,analysis_id,care_advice', 'date', 'doo-pet-history');
+  const history = useOwnedRows('doo_pet_history', 'id,pet,date,disease,risk,score,analysis_id,care_advice', 'date', 'doo-pet-history');
+  const rows = useMemo(() => history.rows.map(record => ({ ...record, risk: confidenceLevel(record.score) })), [history.rows]);
+  return { ...history, rows };
 }
 
 export async function saveAnalysis(owner, pet, file, result, risk, advice) {
