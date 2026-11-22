@@ -1,11 +1,12 @@
 import PhotoPicker from "../PhotoPicker.jsx";
 import { uploadPhoto, discardPhoto } from "../photo-storage.js";
 import { PROFILE_AVATARS, profileAvatar } from "../profile-avatars.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Bone, UserRound, Mail, LockKeyhole, PawPrint, Plus, Pencil, Check, ChevronRight, Save, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, Bone, UserRound, Mail, LockKeyhole, PawPrint, Plus, Pencil, Check, ChevronRight, Save, ShieldCheck, Trash2, X } from "lucide-react";
 import { useAuth, updateAccount } from "../auth-session.js";
-import { DEFAULT_PETS, savePet as persistPet, usePets } from "../pet-store.js";
+import { DEFAULT_PETS, deletePet, savePet as persistPet, usePets } from "../pet-store.js";
+import { useHistory } from "../health-store.js";
 import "./Settings.css";
 import Dropdown from "../Dropdown.jsx";
 
@@ -26,12 +27,44 @@ function PetEditor({ animal, onSave, onCancel, busy }) {
   </form>;
 }
 
+// Deleting is permanent, so the owner must type the pet's exact name before the button unlocks.
+function DeletePetDialog({ pet, historyCount, busy, error, onCancel, onConfirm }) {
+  const ref = useRef(null);
+  const titleId = useId();
+  const inputId = useId();
+  const [typed, setTyped] = useState('');
+  const matches = typed.trim() === pet.name.trim();
+  useEffect(() => {
+    const dialog = ref.current;
+    dialog?.showModal();
+    dialog?.querySelector('input')?.focus();
+    return () => { if (dialog?.open) dialog.close(); };
+  }, []);
+  return <dialog ref={ref} className="settings-pet-dialog settings-delete-dialog" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}>
+    <button type="button" className="settings-pet-dialog-close" onClick={onCancel} disabled={busy} aria-label="ปิดหน้าต่างลบสัตว์เลี้ยง"><X size={20} /></button>
+    <div className="settings-delete-icon"><Trash2 size={26} /></div>
+    <h2 id={titleId}>ลบ {pet.name} ออกจาก My pet?</h2>
+    <p className="settings-add-pet-description">การลบนี้ถาวรและย้อนกลับไม่ได้ ข้อมูลและรูปของน้องจะหายไปจากบัญชี และจะเลือกน้องในหน้าตรวจไม่ได้อีก</p>
+    {historyCount > 0 && <p className="settings-delete-warning"><AlertTriangle size={17} aria-hidden="true" /><span>จะลบ<strong>ประวัติการตรวจ {historyCount} รายการ</strong>ของ{pet.name} รวมถึงผลวิเคราะห์ คำแนะนำ และรูปผิวหนังที่อัปโหลดไว้ทั้งหมดด้วย ข้อมูลเหล่านี้จะไม่แสดงในหน้าประวัติและกราฟอีก</span></p>}
+    <form onSubmit={event => { event.preventDefault(); if (matches && !busy) onConfirm(); }}>
+      <label htmlFor={inputId} className="settings-delete-label">พิมพ์ชื่อ <strong>{pet.name}</strong> เพื่อยืนยันการลบ</label>
+      <input id={inputId} className="settings-delete-input" value={typed} onChange={event => setTyped(event.target.value)} autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder={pet.name} disabled={busy} aria-invalid={typed !== '' && !matches} />
+      {typed !== '' && !matches && <p className="settings-delete-hint">ชื่อยังไม่ตรง ต้องพิมพ์ให้ตรงกับ “{pet.name}”</p>}
+      {error && <p role="alert" className="settings-error">{error}</p>}
+      <div className="pet-editor-actions"><button className="settings-save danger" type="submit" disabled={!matches || busy}><Trash2 size={16} />{busy ? 'กำลังลบ…' : historyCount > 0 ? 'ลบน้องและประวัติทั้งหมด' : 'ลบถาวร'}</button><button className="settings-save secondary" type="button" onClick={onCancel} disabled={busy}>ยกเลิก</button></div>
+    </form>
+  </dialog>;
+}
+
 export default function Settings() {
   const { user, recovery } = useAuth();
   const [avatar, setAvatar] = useState(() => profileAvatar(user?.avatarSource || user?.avatar));
   const [avatarPhoto, setAvatarPhoto] = useState(null);
   const [avatarPreparing, setAvatarPreparing] = useState(false);
   const { rows: pets, loading, error: petError } = usePets();
+  const { rows: history } = useHistory();
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
   const addDialog = useRef(null);
@@ -64,6 +97,18 @@ export default function Settings() {
       const id = await persistPet(user.id, { ...fields, img: uploaded || fields.img });
       setEditingId(id); setAdding(false); setError(''); setMessage(adding ? `เพิ่ม ${value.name} ใน My pet แล้ว เลือกน้องในหน้าตรวจได้เลย` : 'บันทึกข้อมูล My pet แล้ว ใช้รูปและข้อมูลใหม่ในหน้าตรวจได้เลย');
     } catch (failure) { if (uploaded) await discardPhoto(uploaded).catch(() => {}); setError(failure.message || 'บันทึกข้อมูลสัตว์เลี้ยงไม่สำเร็จ กรุณาลองใหม่'); }
+    finally { setBusy(false); }
+  };
+  const removePet = async () => {
+    const pet = deleting;
+    if (!pet || busy) return;
+    setBusy(true); setDeleteError('');
+    try {
+      await deletePet(user.id, pet.id);
+      await discardPhoto(pet.imageSource).catch(() => {});
+      setEditingId(pets.find(item => item.id !== pet.id)?.id);
+      setDeleting(null); setError(''); setMessage(`ลบ ${pet.name} ออกจาก My pet แล้ว`);
+    } catch (failure) { setDeleteError(failure.message || 'ลบสัตว์เลี้ยงไม่สำเร็จ กรุณาลองใหม่'); }
     finally { setBusy(false); }
   };
   return <div className="settings-page">
@@ -113,9 +158,10 @@ export default function Settings() {
             } catch (failure) { setPasswordMessage(failure.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ'); }
             finally { setBusy(false); }
           }}><div className="settings-card-heading"><span><LockKeyhole size={21} /></span><div><h2>รหัสผ่าน</h2><p>ส่วนตั้งค่ารหัสผ่านสำหรับระบบบัญชี</p></div></div><p className="settings-password-note">{recovery ? "กรอกรหัสผ่านใหม่เพื่อกู้คืนบัญชี" : "ตั้งรหัสผ่านใหม่อย่างน้อย 8 ตัวอักษร"}</p><div className="settings-fields"><label>รหัสผ่านใหม่<input name="password" type="password" minLength={8} required autoComplete="new-password" placeholder="อย่างน้อย 8 ตัวอักษร" /></label><label>ยืนยันรหัสผ่านใหม่<input name="confirm" type="password" minLength={8} required autoComplete="new-password" placeholder="กรอกรหัสผ่านอีกครั้ง" /></label></div><p className="settings-password-message" role="status">{passwordMessage}</p><button className="settings-save secondary" type="submit" disabled={busy}><LockKeyhole size={16} />เปลี่ยนรหัสผ่าน</button></form>
-        </> : <div className="settings-card"><div className="settings-pets-heading"><div><span className="settings-eyebrow">YOUR FURRY FAMILY</span><h2>My pet</h2><p>ทุกตัวคือสมาชิกคนสำคัญของบ้าน</p></div><button ref={addButton} type="button" className="settings-add" aria-haspopup="dialog" onClick={() => { setAdding(true); setMessage(''); setError(''); }}><Plus size={17} />เพิ่มสัตว์เลี้ยง</button></div><div className="settings-pet-list">{pets.map(pet => <button type="button" key={pet.id} className={editingId === pet.id ? 'active' : ''} aria-pressed={editingId === pet.id} onClick={() => { setEditingId(pet.id); setMessage(''); setError(''); }}><img src={pet.img} alt="" /><div><strong>{pet.name}</strong><small>{pet.breed} · {pet.age} ปี</small></div><Pencil size={16} /></button>)}</div>{loading && <p role="status">กำลังโหลดสัตว์เลี้ยง…</p>}{petError && <p role="alert">{petError}</p>}{animal && <PetEditor key={animal.id} animal={animal} busy={busy} onSave={savePet} />}</div>}
+        </> : <div className="settings-card"><div className="settings-pets-heading"><div><span className="settings-eyebrow">YOUR FURRY FAMILY</span><h2>My pet</h2><p>ทุกตัวคือสมาชิกคนสำคัญของบ้าน</p></div><button ref={addButton} type="button" className="settings-add" aria-haspopup="dialog" onClick={() => { setAdding(true); setMessage(''); setError(''); }}><Plus size={17} />เพิ่มสัตว์เลี้ยง</button></div><div className="settings-pet-list">{pets.map(pet => <button type="button" key={pet.id} className={editingId === pet.id ? 'active' : ''} aria-pressed={editingId === pet.id} onClick={() => { setEditingId(pet.id); setMessage(''); setError(''); }}><img src={pet.img} alt="" /><div><strong>{pet.name}</strong><small>{pet.breed} · {pet.age} ปี</small></div><Pencil size={16} /></button>)}</div>{loading && <p role="status">กำลังโหลดสัตว์เลี้ยง…</p>}{petError && <p role="alert">{petError}</p>}{animal && <PetEditor key={animal.id} animal={animal} busy={busy} onSave={savePet} />}{animal && <div className="settings-danger"><div><strong>ลบสัตว์เลี้ยง</strong><p>นำ {animal.name} ออกจาก My pet อย่างถาวร รวมถึงประวัติการตรวจและรูปที่อัปโหลด ต้องพิมพ์ชื่อน้องเพื่อยืนยันก่อน</p></div><button type="button" className="settings-delete" aria-haspopup="dialog" disabled={busy} onClick={() => { setDeleting(animal); setDeleteError(''); setMessage(''); setError(''); }}><Trash2 size={16} />ลบ {animal.name}</button></div>}</div>}
       </section>
     </div>
+    {deleting && <DeletePetDialog key={deleting.id} pet={deleting} historyCount={history.filter(record => record.pet === deleting.id).length} busy={busy} error={deleteError} onCancel={() => { if (!busy) setDeleting(null); }} onConfirm={removePet} />}
     <dialog ref={addDialog} className="settings-pet-dialog" aria-labelledby="add-pet-title" onCancel={() => setAdding(false)}>
       <button type="button" className="settings-pet-dialog-close" onClick={() => setAdding(false)} aria-label="ปิดหน้าต่างเพิ่มสัตว์เลี้ยง"><X size={20} /></button>
       <div className="settings-add-pet-icon"><PawPrint size={27} /></div>

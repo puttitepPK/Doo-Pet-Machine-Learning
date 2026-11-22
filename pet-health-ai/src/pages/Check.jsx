@@ -1,6 +1,9 @@
 import { confidenceLevel } from "../confidence.js";
 import { loadCareAdvice } from "../care-advice.js";
 import CareAdvice from "../CareAdvice.jsx";
+import OwnerContextForm from "../OwnerContextForm.jsx";
+import OwnerContextSummary from "../OwnerContextSummary.jsx";
+import { emptyOwnerContext, normalizeOwnerContext } from "../owner-context.js";
 import { usePets } from "../pet-store.js";
 import { useAuth } from "../auth-session.js";
 import { saveAnalysis, useHistory } from "../health-store.js";
@@ -52,6 +55,9 @@ export default function Check() {
   const [file, setFile] = useState(null); const [preview, setPreview] = useState("");
   const [drag, setDrag] = useState(false); const [state, setState] = useState("idle");
   const [care, setCare] = useState(null);
+  // Optional owner context: the form draft, and the snapshot taken when "เริ่มวิเคราะห์" was pressed.
+  const [ownerForm, setOwnerForm] = useState(emptyOwnerContext);
+  const [submitted, setSubmitted] = useState(null);
   const adviceRequest = useRef(0);
   const [result, setResult] = useState([]); const [err, setErr] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
@@ -106,9 +112,16 @@ export default function Check() {
     setPreview((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(selected); });
   };
   const clear = () => { adviceRequest.current += 1; if (preview) URL.revokeObjectURL(preview); setFile(null); setPreview(""); setState("idle"); setResult([]); setErr(""); };
+  // A new check (or another pet) starts with an empty context so answers never carry over.
+  const newCheck = () => { clear(); setOwnerForm(emptyOwnerContext()); setSubmitted(null); setCare(null); };
+  const choosePet = (id) => { if (id !== pet?.id) { setOwnerForm(emptyOwnerContext()); setSubmitted(null); } setPetId(id); };
   const run = async () => {
     if (!file) return;
+    let ownerContext;
+    try { ownerContext = normalizeOwnerContext({ version: 1, ...ownerForm }); }
+    catch (error) { setErr(error.message); return; }
     const request = ++adviceRequest.current;
+    setSubmitted(ownerContext);
     setCare(null);
     setState("loading"); setErr("");
     try {
@@ -119,10 +132,14 @@ export default function Check() {
       setResult(predictions);
       setState("done");
       const top = predictions[0];
-      const advice = await loadCareAdvice(top.label);
+      // The image result above is final; owner context only shapes the advice text.
+      const advice = await loadCareAdvice(top.label, undefined, { score: top.score, ownerContext });
       if (adviceRequest.current === request) setCare(advice);
       if (user && pet) {
-        try { await saveAnalysis(user.id, pet.id, file, response, predictionRisk(top), advice); }
+        try {
+          const saved = await saveAnalysis(user.id, pet.id, file, response, predictionRisk(top), advice, ownerContext);
+          if (ownerContext && !saved.ownerContextSaved && adviceRequest.current === request) setErr("บันทึกผลตรวจแล้ว แต่ยังบันทึกข้อมูลประกอบไม่ได้ เพราะฐานข้อมูลยังไม่ได้อัปเดต");
+        }
         catch { if (adviceRequest.current === request) setErr("วิเคราะห์ภาพสำเร็จ แต่บันทึกประวัติไม่สำเร็จ"); }
       }
     } catch (error) {
@@ -158,7 +175,9 @@ export default function Check() {
               <span className="check-result-complete"><CheckIcon size={16} />วิเคราะห์เสร็จแล้ว</span>
             </div>
             <div className="check-primary-result"><small>ผลวิเคราะห์หลัก</small><div className="check-result-summary"><strong>{diseaseName(top.label)}</strong><Risk level={risk} /></div></div>
+            <OwnerContextSummary context={submitted} />
             <CareAdvice key={preview} disease={top.label} saved={care} />
+            {err && <p className="check-error" role="alert"><AlertCircle size={17} />{err}</p>}
             <details className="check-result-details">
               <summary>ดูผลวิเคราะห์เพิ่มเติม</summary>
               <p>3 อันดับที่โมเดลประเมินได้คะแนนสูงสุด</p>
@@ -166,7 +185,7 @@ export default function Check() {
             </details>
             <Disclaimer>ผลนี้เป็นการคัดกรองเบื้องต้นเท่านั้น หากสุนัขมีอาการผิดปกติควรพบสัตวแพทย์</Disclaimer>
             <div className="check-result-actions">
-              <button type="button" className="btn" onClick={() => { clear(); requestAnimationFrame(() => uploadHeading.current?.focus()); }}><ImagePlus size={18} />ตรวจรูปใหม่</button>
+              <button type="button" className="btn" onClick={() => { newCheck(); requestAnimationFrame(() => uploadHeading.current?.focus()); }}><ImagePlus size={18} />ตรวจรูปใหม่</button>
               <Link to="/clinics" className="check-clinic-link"><MapPin size={17} />ค้นหาคลินิกใกล้ฉัน<ArrowRight size={17} /></Link>
             </div>
           </section>
@@ -185,13 +204,14 @@ export default function Check() {
             </>}
             <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => pick(event.target.files?.[0])} />
           </div>
+          <OwnerContextForm value={ownerForm} onChange={setOwnerForm} disabled={state === "loading"} />
           {err && <p className="check-error" role="alert"><AlertCircle size={17} />{err}</p>}
           <button type="button" className="check-run" disabled={!file || state === "loading"} onClick={run}>{state === "loading" ? <><Sparkles className="spin" size={18} />กำลังวิเคราะห์ภาพ...</> : <><Sparkles size={18} />เริ่มวิเคราะห์สุขภาพ</>}</button>
         </div>}
       </section>
 
       <aside className="check-sidebar">
-        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2>{pet ? <div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><Dropdown disabled={state === "loading" || state === "done"} value={pet.id} onChange={setPetId} ariaLabel="เลือกสัตว์เลี้ยง" chevron={false} options={PETS.map((item) => ({ value: item.id, label: item.name }))} /><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div> : <p>{petsLoading ? "กำลังโหลดสัตว์เลี้ยง…" : petsError || (user ? <Link to="/settings">เพิ่มสัตว์เลี้ยงเพื่อเก็บประวัติการตรวจ</Link> : <Link to="/login">เข้าสู่ระบบเพื่อเก็บประวัติการตรวจ</Link>)}</p>}</section>
+        <section className="pet-info-card"><h2><PawPrint size={22} fill="currentColor" />ข้อมูลสัตว์เลี้ยงของคุณ</h2>{pet ? <div className="pet-info-content"><Avatar pet={pet} size={90} /><div className="pet-meta"><label>ชื่อ <span>:</span><Dropdown disabled={state === "loading" || state === "done"} value={pet.id} onChange={choosePet} ariaLabel="เลือกสัตว์เลี้ยง" chevron={false} options={PETS.map((item) => ({ value: item.id, label: item.name }))} /><Pencil size={14} /></label><p><span className="pet-meta-icon">⌂</span>พันธุ์ : {pet.breed}</p><p><CalendarDays size={17} />อายุ : {pet.age} ปี</p></div></div> : <p>{petsLoading ? "กำลังโหลดสัตว์เลี้ยง…" : petsError || (user ? <Link to="/settings">เพิ่มสัตว์เลี้ยงเพื่อเก็บประวัติการตรวจ</Link> : <Link to="/login">เข้าสู่ระบบเพื่อเก็บประวัติการตรวจ</Link>)}</p>}</section>
         <section className="latest-card"><div className="latest-heading"><h2><ClipboardList size={22} />ประวัติการตรวจล่าสุด</h2><Link to="/history">ดูทั้งหมด <ArrowRight size={16} /></Link></div>{latest && pet ? <Link className="latest-entry" to="/history"><img src={pet.img} alt={pet.name} /><div><small><CalendarDays size={13} />{fmtDate(latest.date).split(" เวลา")[0]}</small><strong>กลุ่มโรค : {diseaseName(latest.disease)}</strong></div><Risk level={latest.risk} /></Link> : <p>ยังไม่มีประวัติการตรวจ</p>}</section>
         <section className="check-tips" aria-labelledby="check-tips-heading">
           <div className="tip-copy">

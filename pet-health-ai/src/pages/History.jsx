@@ -1,8 +1,11 @@
+import HistoryPhoto from "../HistoryPhoto.jsx";
 import { usePets } from "../pet-store.js";
 import { useAuth } from "../auth-session.js";
 import { useHistory } from "../health-store.js";
 import CareAdvice from "../CareAdvice.jsx";
+import OwnerContextSummary from "../OwnerContextSummary.jsx";
 import HealthSummaryChart from "../HealthSummaryChart.jsx";
+import SymptomTracking from "../SymptomTracking.jsx";
 import {
   buildDailyCounts, buildDiseaseBreakdown, buildMonthlyCounts, currentMonthKey, diseaseColor, diseaseKey, isNormal,
   monthLong, monthRange, monthsBetween, recordMonthKey,
@@ -10,8 +13,9 @@ import {
 import { diseaseName } from "../disease-labels.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
-  AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, ListChecks,
+  Activity, AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, ListChecks,
   Clock3, Filter, PawPrint, RotateCcw, Search, ShieldCheck, Stethoscope, X,
 } from "lucide-react";
 import { fmtDate, Avatar } from "../shared.jsx";
@@ -100,11 +104,15 @@ export default function History() {
   const clearFilters = () => { setQuery(""); setRisk(""); setDisease(""); setSort("new"); setPage(1); };
   const retry = () => { window.dispatchEvent(new Event("doo-pet-history")); window.dispatchEvent(new Event("doo-pet-pets")); };
   const closeDetails = () => setSelected(null);
+  const openTrackingRecord = (record, event) => {
+    openerRef.current = event.currentTarget;
+    setSelected({ ...record, animal: PETS.find((animal) => animal.id === record.pet) ?? UNKNOWN_PET });
+  };
   // Left tab rail: "กราฟ" shows the chart, "รายละเอียด" swaps it for the filtered history list.
-  const VIEWS = ["chart", "details"];
+  const VIEWS = ["chart", "details", "tracking"];
   const onTabKey = (event) => {
     const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
-    const target = event.key === "Home" ? 0 : event.key === "End" ? 1 : step ? (VIEWS.indexOf(view) + step + 2) % 2 : null;
+    const target = event.key === "Home" ? 0 : event.key === "End" ? VIEWS.length - 1 : step ? (VIEWS.indexOf(view) + step + VIEWS.length) % VIEWS.length : null;
     if (target === null) return;
     event.preventDefault();
     setView(VIEWS[target]);
@@ -120,6 +128,20 @@ export default function History() {
   useEffect(() => {
     if (!selected) return undefined;
     const returnFocusTo = openerRef.current;
+    // Keep the navbar visible above the dialog: lift it over the backdrop and leave room for it
+    // (top bar on desktop, bottom tab bar on mobile).
+    const root = document.documentElement;
+    const placeNav = () => {
+      const header = document.querySelector("header.top")?.getBoundingClientRect();
+      const links = document.querySelector("header.top nav")?.getBoundingClientRect();
+      const top = header && header.top < window.innerHeight / 2 ? Math.max(0, header.bottom) : 0;
+      const bottom = links && links.top > window.innerHeight / 2 ? Math.max(0, window.innerHeight - links.top) : 0;
+      root.style.setProperty("--doo-nav-top", `${Math.round(top)}px`);
+      root.style.setProperty("--doo-nav-bottom", `${Math.round(bottom)}px`);
+    };
+    placeNav();
+    document.body.classList.add("doo-modal-open");
+    window.addEventListener("resize", placeNav);
     const frame = requestAnimationFrame(() => closeRef.current?.focus());
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
@@ -150,6 +172,8 @@ export default function History() {
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", placeNav);
+      document.body.classList.remove("doo-modal-open");
       returnFocusTo?.focus();
     };
   }, [selected]);
@@ -169,6 +193,14 @@ export default function History() {
   );
   return (
     <div className="history-page">
+      <div className="history-background-paws" aria-hidden="true">
+        {Array.from({ length: 22 }, (_, index) => <PawPrint key={index} style={{
+          '--paw-x': `${(index * 37 + 4) % 96}%`,
+          '--paw-y': `${(index * 29 + 3) % 96}%`,
+          '--paw-size': `${26 + index % 5 * 9}px`,
+          '--paw-angle': `${index % 2 ? 24 : -28}deg`,
+        }} />)}
+      </div>
       <section className="history-hero">
         <div className="history-hero-icon"><ClipboardCheck size={46} strokeWidth={1.8} /><PawPrint size={24} /></div>
         <div className="history-hero-copy">
@@ -185,7 +217,7 @@ export default function History() {
       </section>
 
       <div className="history-workspace">
-      {status === "ready" && <section className="history-stats" aria-label={`สรุปประวัติการตรวจ ${scopeLabel}`}>
+      {status === "ready" && view !== "tracking" && <section className="history-stats" aria-label={`สรุปประวัติการตรวจ ${scopeLabel}`}>
         <article className="history-stat total"><span className="history-stat-icon"><Stethoscope size={30} /></span><div><small>การตรวจทั้งหมด</small><strong>{stats.total} ครั้ง</strong><p>{scopeLabel}{petName ? ` · ${petName}` : ""}</p></div></article>
         <article className="history-stat low"><span className="history-stat-icon"><ShieldCheck size={30} /></span><div><small>ความมั่นใจต่ำ</small><strong>{stats.low} ครั้ง</strong><p>ผลวิเคราะห์ที่มีความมั่นใจต่ำ</p></div></article>
         <article className="history-stat mid"><span className="history-stat-icon"><AlertTriangle size={30} /></span><div><small>ความมั่นใจกลาง</small><strong>{stats.mid} ครั้ง</strong><p>ผลวิเคราะห์ที่มีความมั่นใจกลาง</p></div></article>
@@ -203,9 +235,17 @@ export default function History() {
           <span className="history-tab-icon" aria-hidden="true"><ListChecks size={20} /></span>
           <span className="history-tab-text"><b>รายละเอียด</b><small>{status === "ready" ? `${records.length} รายการ` : "รายการประวัติ"}</small></span>
         </button>
+        <button type="button" id="history-tab-tracking" role="tab" aria-selected={view === "tracking"} aria-controls="history-panel" tabIndex={view === "tracking" ? 0 : -1}
+          className={view === "tracking" ? "on" : ""} onClick={() => setView("tracking")}>
+          <span className="history-tab-icon" aria-hidden="true"><Activity size={20} /></span>
+          <span className="history-tab-text"><b>ติดตามอาการ</b><small>เปรียบเทียบและดูแนวโน้ม</small></span>
+        </button>
       </nav>
 
-      <div id="history-panel" className="history-panel" role="tabpanel" aria-labelledby={`history-tab-${view}`} key={view}>
+      <div id="history-panel" className="history-panel" role="tabpanel" aria-labelledby={`history-tab-${view}`}>
+      <div hidden={view !== "tracking"}>
+        <SymptomTracking records={HISTORY} pets={PETS} status={status} onRetry={retry} onOpen={openTrackingRecord} />
+      </div>
       {view === "chart" && <>
       <HealthSummaryChart status={status} onRetry={retry}
         pets={PETS} pet={pet} onPetChange={changePet}
@@ -249,6 +289,7 @@ export default function History() {
                 <div className="history-diagnosis"><small><CalendarDays size={15} />{fmtDate(record.date)}</small><strong>{diseaseName(record.disease)}</strong></div>
                 <div className="history-risk-cell"><ResultBadge record={record} /></div>
                 <button className="history-detail" onClick={(event) => { openerRef.current = event.currentTarget; setSelected({ ...record, animal }); }}>ดูรายละเอียด<ChevronRight size={17} /></button>
+
               </li>;
             })}
           </ul>
@@ -269,15 +310,24 @@ export default function History() {
       </div>
       </div>
 
-      {selected && <div className="history-modal-backdrop" onClick={closeDetails} role="presentation">
-        <section ref={modalRef} className="history-modal" role="dialog" aria-modal="true" aria-labelledby="history-detail-title" tabIndex={-1} onClick={(event) => event.stopPropagation()}>
+      {/* Rendered on <body> so the floating header never covers it; two columns on wide screens. */}
+      {selected && createPortal(<div className="history-modal-backdrop" onClick={closeDetails} role="presentation">
+        <section ref={modalRef} className="history-modal history-modal-wide" role="dialog" aria-modal="true" aria-labelledby="history-detail-title" tabIndex={-1} onClick={(event) => event.stopPropagation()}>
           <button ref={closeRef} className="history-modal-close" onClick={closeDetails} aria-label="ปิด"><X size={20} /></button>
           <div className="history-modal-pet"><Avatar pet={selected.animal} size={72} /><div><h2 id="history-detail-title">ผลการตรวจของ {selected.animal.name}</h2><span>{selected.animal.breed} · อายุ {selected.animal.age} ปี</span></div></div>
-          <div className="history-modal-result"><small><Clock3 size={15} />{fmtDate(selected.date)}</small><strong>{diseaseName(selected.disease)}</strong><ResultBadge record={selected} /></div>
-          <div className="history-modal-care"><CareAdvice key={selected.id} disease={selected.disease} saved={selected.care_advice ?? undefined} /></div>
-          <p className="history-modal-note">ระบบบันทึกผลการตรวจเบื้องต้นนี้เพื่อใช้อ้างอิง หากสัตว์เลี้ยงมีอาการผิดปกติ ควรปรึกษาสัตวแพทย์</p>
+          <div className="history-modal-grid">
+            <div className="history-modal-col">
+              <div className="history-modal-result"><small><Clock3 size={15} />{fmtDate(selected.date)}</small><strong>{diseaseName(selected.disease)}</strong><ResultBadge record={selected} /></div>
+              <div className="history-modal-photo"><HistoryPhoto record={selected} /></div>
+              <OwnerContextSummary context={selected.owner_context} />
+            </div>
+            <div className="history-modal-col history-modal-advice">
+              <div className="history-modal-care"><CareAdvice key={selected.id} disease={selected.disease} saved={selected.care_advice ?? undefined} /></div>
+              <p className="history-modal-note">ระบบบันทึกผลการตรวจเบื้องต้นนี้เพื่อใช้อ้างอิง หากสัตว์เลี้ยงมีอาการผิดปกติ ควรปรึกษาสัตวแพทย์</p>
+            </div>
+          </div>
         </section>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }
