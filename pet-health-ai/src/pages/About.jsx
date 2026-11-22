@@ -8,7 +8,7 @@ import { diseaseName } from "../disease-labels.js";
 import { diseaseColor } from "../health-chart.js";
 import "./About.css";
 
-const TECH = ["Machine Learning", "Image Classification", "MobileNetV3-Small", "FastAPI", "React + Vite", "Supabase"];
+const TECH = ["Machine Learning", "Image Classification", "EfficientNet-B3", "FastAPI", "React + Vite", "Supabase"];
 
 const STEPS = [
   { icon: Camera, title: "แนบรูปผิวหนัง", description: "ถ่ายหรือเลือกรูปที่เห็นบริเวณที่กังวลชัดเจน" },
@@ -34,7 +34,7 @@ const GROUPS = [
 
 const FEATURES = [
   { icon: ShieldCheck, title: "คัดกรองภาพก่อนวิเคราะห์", text: "ตรวจว่าเป็นภาพสุนัขหรือผิวหนังสุนัขก่อนวิเคราะห์ เพื่อลดผลจากภาพที่ไม่เกี่ยวข้อง" },
-  { icon: BrainCircuit, title: "วิเคราะห์ด้วยโมเดลเฉพาะทาง", text: "ใช้ MobileNetV3-Small สำหรับ Image Classification จำแนกภาพผิวหนังสุนัข 6 กลุ่ม พร้อมความมั่นใจของผลวิเคราะห์" },
+  { icon: BrainCircuit, title: "วิเคราะห์ด้วยโมเดลเฉพาะทาง", text: "ใช้ EfficientNet-B3 สำหรับ Image Classification จำแนกภาพผิวหนังสุนัข 6 กลุ่ม พร้อมความมั่นใจของผลวิเคราะห์" },
   { icon: HeartPulse, title: "คำแนะนำการดูแลเบื้องต้น", text: "บอกสิ่งที่ควรสังเกต วิธีดูแล และเมื่อไรควรพบสัตวแพทย์" },
   { icon: History, title: "ประวัติและคลินิกใกล้คุณ", text: "เก็บผลตรวจเป็นรายเดือน และค้นหาคลินิกสัตว์ใกล้ตำแหน่งของคุณ" },
 ];
