@@ -13,10 +13,24 @@ from torchvision.transforms import InterpolationMode
 
 
 # ตั้งค่าโหมด B3 สำหรับหน้าเว็บ แล้วรีสตาร์ต API:
-# True = เปิด TTA 6 แบบตาม B0, False = ใช้ภาพเดียว
-B3_TTA_OVERRIDE = True  
+# True = เปิด TTA ตาม recipe ใน metadata ของ B3, False = ใช้ภาพเดียว
+B3_TTA_OVERRIDE = False  
+
+B3_NEWADD5_TTA_VIEWS = ["identity", "hflip", "rot-10", "rot+10", "hflip_rot-10", "hflip_rot+10"]
+B3_LEGACY_TTA_RECIPE = "legacy_enhance_v1"
+B3_NEWADD5_TTA_RECIPE = "newadd5_rotation_v1"
 
 
+def get_b3_tta_recipe(metadata):
+    """Use the evaluated view recipe; older checkpoints retain their original recipe."""
+    views = metadata.get("tta_views")
+    if views is None:
+        return B3_LEGACY_TTA_RECIPE
+    if views == B3_NEWADD5_TTA_VIEWS:
+        return B3_NEWADD5_TTA_RECIPE
+    raise ValueError("Unsupported B3 tta_views in checkpoint metadata")
+
+# โหลดโมเดล B3 ที่ประเมินแล้วและตรวจสอบความถูกต้องของน้ำหนักและเมตาดาต้า
 def load_b3_model(model_dir, device, expected_classes):
     model_dir = Path(model_dir)
     weights_path = model_dir / "efficientnet_b3_model.pth"
@@ -32,6 +46,7 @@ def load_b3_model(model_dir, device, expected_classes):
         raise ValueError("B3 class_to_idx does not match the API class mapping")
     if metadata.get("num_classes") != len(classes):
         raise ValueError("B3 metadata has a different number of classes")
+    get_b3_tta_recipe(metadata)
 
     preprocessing = metadata["preprocessing"]
     if (preprocessing.get("color_mode") != "RGB"
@@ -87,12 +102,19 @@ def enhance_b3_image(image):
         image = ImageEnhance.Contrast(image).enhance(1.2)
     return ImageEnhance.Sharpness(image).enhance(1.5)
 
-# TTA 6 แบบโดยตรง 6 แบบ: ต้นฉบับ ปรับแสง ครอป เพิ่มความคม เพิ่มความสว่าง/คอนทราสต์ และกลับซ้าย–ขวา
-def build_b3_views(image, use_tta=False):
-    """Create one or six PIL views before applying B3's original preprocessing."""
+# NewAdd5 ใช้ flip/หมุนตาม Colab; checkpoint เดิมที่ไม่มี tta_views ใช้ recipe ปรับแสงเดิม
+def build_b3_views(image, use_tta=False, tta_recipe=B3_LEGACY_TTA_RECIPE):
+    """Create the exact PIL views evaluated for the selected B3 checkpoint."""
+    if tta_recipe not in (B3_LEGACY_TTA_RECIPE, B3_NEWADD5_TTA_RECIPE):
+        raise ValueError("Unsupported B3 TTA recipe")
     image = ImageOps.exif_transpose(image).convert("RGB")
     if not use_tta:
         return [image]
+    if tta_recipe == B3_NEWADD5_TTA_RECIPE:
+        minus = image.rotate(-10, resample=Image.Resampling.BILINEAR)
+        plus = image.rotate(10, resample=Image.Resampling.BILINEAR)
+        return [image, ImageOps.mirror(image), minus, plus,
+                ImageOps.mirror(minus), ImageOps.mirror(plus)]
     width, height = image.size
     enhanced = enhance_b3_image(image)
     crop_box = (int(width * 0.12), int(height * 0.12),
@@ -103,9 +125,10 @@ def build_b3_views(image, use_tta=False):
     return [image, enhanced, cropped, sharpened, brighter, ImageOps.mirror(enhanced)]
 
 # เตรียมภาพทั้งหมดให้เข้า B3 	เตรียมแต่ละภาพเป็น Tensor ขนาด 300×300 สำหรับ B3
-def build_b3_batch(image: Image.Image, preprocessing_transform, device, use_tta=False):
-    """Prepare the same six variants as B0, using B3's own 300x300 transform."""
-    views = build_b3_views(image, use_tta=use_tta)
+def build_b3_batch(image: Image.Image, preprocessing_transform, device, use_tta=False,
+                   tta_recipe=B3_LEGACY_TTA_RECIPE):
+    """Prepare checkpoint-specific views with B3's own 300x300 transform."""
+    views = build_b3_views(image, use_tta=use_tta, tta_recipe=tta_recipe)
     return torch.stack([preprocessing_transform(view) for view in views]).to(device)
 
 

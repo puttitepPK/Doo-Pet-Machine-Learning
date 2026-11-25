@@ -23,12 +23,12 @@ if __package__:
     from .care_advice import OPTIONS, care_advice
     from .care_context import context_tips
     from .owner_context import OwnerContextError, normalize_owner_context
-    from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, load_b3_model
+    from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
 else:
     from care_advice import OPTIONS, care_advice
     from care_context import context_tips
     from owner_context import OwnerContextError, normalize_owner_context
-    from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, load_b3_model
+    from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
 
 app = FastAPI(title="Pet Health AI API")
 
@@ -101,12 +101,14 @@ model_efficientnet_b3 = None
 b3_transforms = None
 b3_metadata = None
 b3_default_tta = False
+b3_tta_recipe = None
 if efficientnet_b3_path.exists():
     model_efficientnet_b3, b3_transforms, b3_metadata = load_b3_model(
         B3_DIR, device, CLASSES_LIST,
     )
     b3_default_tta = B3_TTA_OVERRIDE
-    print(f"✅ โหลด EfficientNet-B3 สำเร็จ ({efficientnet_b3_path.name}, 300×300, TTA default={b3_default_tta})")
+    b3_tta_recipe = get_b3_tta_recipe(b3_metadata)
+    print(f"✅ โหลด EfficientNet-B3 สำเร็จ ({efficientnet_b3_path.name}, 300×300, TTA default={b3_default_tta}, recipe={b3_tta_recipe})")
 
 # =========================================================
 # 2. โหลดโมเดล CLIP Guardrail คัดกรองรูปสุนัข/แผลสุนัข
@@ -303,7 +305,7 @@ async def predict_endpoint(
         "auto", description="auto ใช้ B3 ก่อน | mobilenet | efficientnet (B0) | efficientnet_b3 | all หรือ both เปรียบเทียบ 3 ตัว",
     ),
     b3_tta: bool | None = Query(
-        None, description="B3: true = เฉลี่ย TTA 6 แบบตาม B0, false = ภาพเดียว, ไม่ระบุ = ใช้ B3_TTA_OVERRIDE ในโค้ด",
+        None, description="B3: true = เฉลี่ย TTA 6 แบบตาม metadata, false = ภาพเดียว, ไม่ระบุ = ใช้ B3_TTA_OVERRIDE ในโค้ด",
     ),
     details: bool = False,
 ):
@@ -333,11 +335,12 @@ async def predict_endpoint(
 
     res_mobilenet = evaluate("mobilenet", model_mobilenet, tta_batch) if model_mobilenet else None
     res_efficientnet = evaluate("efficientnet", model_efficientnet, tta_batch) if model_efficientnet else None
-    # B3 เลือกภาพเดียวหรือ TTA 6 แบบตาม B0; ทุกแบบใช้ preprocessing 300×300 เดิม
+    # B3 ใช้ recipe ที่ประเมินไว้ใน metadata ของ checkpoint
     use_b3_tta = b3_default_tta if b3_tta is None else b3_tta
     res_efficientnet_b3 = None
     if model_efficientnet_b3 is not None:
-        b3_batch = build_b3_batch(pil_img, b3_transforms, device, use_tta=use_b3_tta)
+        b3_batch = build_b3_batch(pil_img, b3_transforms, device, use_tta=use_b3_tta,
+                                  tta_recipe=b3_tta_recipe)
         res_efficientnet_b3 = evaluate("efficientnet_b3", model_efficientnet_b3, b3_batch)
 
     # แสดงตารางเปรียบเทียบใน Terminal ทุกครั้งที่มีการอัปโหลดรูป
@@ -352,14 +355,15 @@ async def predict_endpoint(
         print(f"  🔸 EfficientNet-B0   : {top_e['label']} ({top_e['score']*100:.2f}%) [{status}]")
     if res_efficientnet_b3:
         top_b3 = res_efficientnet_b3[0]
-        mode = "TTA 6 แบบ" if use_b3_tta else "ภาพเดียว"
+        mode = f"TTA 6 แบบ, {b3_tta_recipe}" if use_b3_tta else "ภาพเดียว"
         print(f"  🔶 EfficientNet-B3   : {top_b3['label']} ({top_b3['score']*100:.2f}%) [300×300, {mode}]")
     print("=" * 58 + "\n")
 
     if details:
         candidates = (
             ("efficientnet_b3", efficientnet_b3_path, res_efficientnet_b3,
-             "b3-300-six-view-v1" if use_b3_tta else "b3-300-single-v1"),
+             ("b3-300-newadd5-six-view-v1" if b3_tta_recipe == "newadd5_rotation_v1"
+              else "b3-300-six-view-v1") if use_b3_tta else "b3-300-single-v1"),
             ("efficientnet", efficientnet_path, res_efficientnet if efficientnet_is_finetuned else None,
              "resize224-six-view-v1"),
             ("mobilenet", mobilenet_path, res_mobilenet, "resize224-six-view-v1"),
@@ -442,7 +446,8 @@ def model_status():
         "classes": CLASSES_LIST,
         "b3_inference": {
             "default_tta": b3_default_tta,
-            "available_tta": "six_view_v1",
+            "available_tta": "newadd5_rotation_v1" if b3_tta_recipe == "newadd5_rotation_v1" else "six_view_v1",
+            "tta_recipe": b3_tta_recipe,
             "default_views": 6 if b3_default_tta else 1,
         },
     }
