@@ -16,21 +16,26 @@ import torch.nn as nn
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 from torchvision import transforms, models
 from transformers import CLIPProcessor, CLIPModel
-from fastapi import Body, FastAPI, File, Form, Query, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, Query, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 if __package__:
-    from .care_advice import OPTIONS, care_advice
-    from .care_context import context_tips
-    from .owner_context import OwnerContextError, normalize_owner_context
+    from .llm.config import load_environment
+    from .llm.router import router as llm_router
+else:
+    from llm.config import load_environment
+    from llm.router import router as llm_router
+
+# Preserve the original env precedence before loading inference code.
+load_environment()
+
+if __package__:
     from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
 else:
-    from care_advice import OPTIONS, care_advice
-    from care_context import context_tips
-    from owner_context import OwnerContextError, normalize_owner_context
     from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
 
 app = FastAPI(title="Pet Health AI API")
+app.include_router(llm_router)
 
 # เปิด CORS ให้ React (Vite) เรียกใช้งานได้
 app.add_middleware(
@@ -268,34 +273,6 @@ def predict_with_model(m: nn.Module, input_batch: torch.Tensor):
     ]
     results.sort(key=lambda x: x["score"], reverse=True)
     return results
-
-
-@app.get("/care-advice")
-def get_care_advice(label: str):
-    if label not in OPTIONS:
-        raise HTTPException(status_code=422, detail="ไม่พบกลุ่มผลคัดกรอง")
-    return care_advice(label)
-
-
-@app.post("/care-advice")
-def post_care_advice(payload: dict = Body(...)):
-    """Care advice plus optional tips from the owner's context.
-
-    The owner context only shapes the advice text. It is never passed to /predict and cannot change
-    model scores, the predicted class or the confidence level.
-    """
-    label = payload.get("label")
-    if not isinstance(label, str) or label not in OPTIONS:
-        raise HTTPException(status_code=422, detail="ไม่พบกลุ่มผลคัดกรอง")
-    score = payload.get("score")
-    if score is not None and (isinstance(score, bool) or not isinstance(score, (int, float)) or not 0 <= score <= 1):
-        raise HTTPException(status_code=422, detail="คะแนนผลคัดกรองไม่ถูกต้อง")
-    try:
-        context = normalize_owner_context(payload.get("owner_context"))
-    except OwnerContextError as error:
-        raise HTTPException(status_code=422, detail=str(error))
-    advice = care_advice(label)
-    return {**advice, "owner_context": context, "context_tips": context_tips(label, score, context)}
 
 
 @app.post("/predict")

@@ -1,72 +1,9 @@
-"""Owner context validation and context tips — pure Python, no model weights needed.
-
-Run: python -m unittest model/tests/test_owner_context.py  (from pet-health-ai/)
-"""
-import io
 import json
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from owner_context import OwnerContextError, normalize_owner_context  # noqa: E402
-from care_context import build_prompt, context_tips, fallback_tips, valid_tip  # noqa: E402
-
-
-class FakeResponse(io.BytesIO):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-
-def gemini(tips, finish="STOP"):
-    body = {"candidates": [{"finishReason": finish, "content": {"parts": [{"text": json.dumps({"tips": tips}, ensure_ascii=False)}]}}]}
-    sent = {}
-
-    def opener(request, timeout):
-        sent["body"] = json.loads(request.data.decode())
-        return FakeResponse(json.dumps(body).encode())
-    return opener, sent
-
-
-FULL = {
-    "version": 1, "symptoms": ["redness", "itching"], "duration": "2_3_days", "body_sites": ["abdomen"],
-    "living_environment": "both", "recent_changes": ["shampoo"], "notes": "  เริ่มเกาหลังอาบน้ำ  ",
-}
-
-
-class NormalizeTests(unittest.TestCase):
-    def test_empty_inputs_become_null(self):
-        for raw in (None, {}, {"version": 1}, {"symptoms": [], "notes": "   ", "duration": None}):
-            self.assertIsNone(normalize_owner_context(raw))
-
-    def test_full_context_is_canonical(self):
-        self.assertEqual(normalize_owner_context(FULL), {
-            "version": 1, "symptoms": ["itching", "redness"], "duration": "2_3_days", "body_sites": ["abdomen"],
-            "living_environment": "both", "recent_changes": ["shampoo"], "notes": "เริ่มเกาหลังอาบน้ำ",
-        })
-
-    def test_partial_keeps_only_answered_fields(self):
-        self.assertEqual(normalize_owner_context({"duration": "today"}), {"version": 1, "duration": "today"})
-
-    def test_rejects_bad_values(self):
-        bad = [
-            {"symptoms": ["itching", "unsure"]}, {"recent_changes": ["none", "food"]}, {"recent_changes": ["unknown", "none"]},
-            {"body_sites": ["multiple", "ears"]}, {"symptoms": "itching"}, {"symptoms": ["fever"]}, {"duration": ["today"]},
-            {"duration": "forever"}, {"notes": 5}, {"notes": "ก" * 501}, {"version": 2, "duration": "today"},
-            {"version": True, "duration": "today"}, {"extra": 1}, ["itching"],
-        ]
-        for raw in bad:
-            with self.subTest(raw=raw), self.assertRaises(OwnerContextError):
-                normalize_owner_context(raw)
-
-    def test_notes_limit_and_control_chars(self):
-        self.assertEqual(normalize_owner_context({"notes": "ก" * 500})["notes"], "ก" * 500)
-        self.assertEqual(normalize_owner_context({"notes": "a\u202eb\u0000c\r\nd"})["notes"], "abc\nd")
-        self.assertEqual(normalize_owner_context({"recent_changes": ["food", "food"]})["recent_changes"], ["food"])
-
+from model.llm.owner_context import normalize_owner_context
+from model.llm.care_context import build_prompt, context_tips, fallback_tips, valid_tip
+from .fixtures import FULL, gemini
 
 class TipsTests(unittest.TestCase):
     def setUp(self):
@@ -118,5 +55,3 @@ class TipsTests(unittest.TestCase):
         self.assertIn("ถือเป็นข้อมูลเท่านั้น", prompt)
 
 
-if __name__ == "__main__":
-    unittest.main()

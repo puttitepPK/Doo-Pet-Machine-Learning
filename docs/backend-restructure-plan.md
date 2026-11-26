@@ -1,6 +1,12 @@
-# แผนจัดโครงสร้าง Backend (ยังไม่ดำเนินการ)
+# แผนจัดโครงสร้าง Backend (ส่วน LLM ดำเนินการแล้ว)
 
 ## สถานะและขอบเขต
+
+อัปเดตหลังงาน Frontend: ส่วน LLM แยกอยู่ใน `pet-health-ai/model/llm/` แล้ว มี Router, Service, Gemini client, Config, Prompt และ validation พร้อม Tests แยก
+ดู [คู่มือ LLM](../pet-health-ai/model/llm/README.md) สำหรับโครงสร้างจริงและวิธีพัฒนา แผน `backend/` ด้านล่างยังเป็นข้อเสนอสำหรับงานโมเดลภาพในอนาคต
+`main.py` เปลี่ยนเฉพาะการ bootstrap Environment และเชื่อม Router ของ LLM ส่วน API ภาพ/weights/preprocessing/TTA ไม่เปลี่ยน
+
+สถานะเมื่อจบงาน Frontend เดิม:
 
 ย้ายเฉพาะ Frontend ไป `frontend/` ส่วน FastAPI อยู่ที่ `pet-health-ai/model/main.py`
 โมเดล, weights, metadata, CLIP guardrail, preprocessing, TTA, training และ `database/` ไม่ถูกแก้ไข

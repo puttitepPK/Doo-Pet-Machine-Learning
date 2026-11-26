@@ -6,6 +6,8 @@
 
 ## ไฟล์ที่ใช้
 
+ส่วนคำแนะนำด้วย Gemini แยกอยู่ใน [`llm/`](llm/README.md) แล้ว ดูคู่มือสำหรับ Prompt, Config, API และ Tests ของ LLM ที่ลิงก์นี้
+
 | ไฟล์ในโฟลเดอร์ model | หน้าที่ |
 |---|---|
 | `mobilenet_model.pth` | น้ำหนัก MobileNetV3-Small เดิม |

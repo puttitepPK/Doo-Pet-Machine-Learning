@@ -1,22 +1,15 @@
-"""Choose short care suggestions with Gemini from a fixed set of options."""
-import json
+"""Select general advice from approved options; fall back on any provider failure."""
 import logging
-import os
 import random
 from itertools import product
-from pathlib import Path
 from threading import BoundedSemaphore
-from urllib.request import Request, urlopen
 
-from dotenv import load_dotenv
+from .config import ADVICE_CONCURRENCY, ADVICE_TIMEOUT, get_api_key
+from .gemini_client import generate_json
+from .prompts import build_advice_prompt
 
-MODEL_DIR = Path(__file__).resolve().parent
-load_dotenv(MODEL_DIR.parent / ".env.local", override=False)
-load_dotenv(MODEL_DIR / ".env.local", override=False)
-
-MODEL = "gemini-3.5-flash-lite"
 logger = logging.getLogger(__name__)
-requests = BoundedSemaphore(2)
+requests = BoundedSemaphore(ADVICE_CONCURRENCY)
 
 OPTIONS = {
     "bacterial_dermatosis": (
@@ -52,23 +45,18 @@ OPTIONS = {
 }
 
 
-def care_advice(label: str) -> dict:
+def care_advice(label: str, *, opener=None, api_key=None) -> dict:
     groups = OPTIONS[label]
     choices = list(product(*groups))
     fallback = {"items": [group[0] for group in groups], "source": "fallback"}
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = get_api_key(api_key)
     if not api_key or not requests.acquire(blocking=False):
         return fallback
 
     try:
         random.shuffle(choices)
         body = {
-            "contents": [{"parts": [{"text": (
-                f"จัดข้อความดูแลผิวหนังสุนัขเบื้องต้นสำหรับผลคัดกรอง {label} "
-                "เลือกชุดคำแนะนำตามลำดับ อาการที่ควรสังเกต วิธีดูแลเบื้องต้น และสิ่งที่ควรหลีกเลี่ยง ห้ามขอให้ถ่ายหรือส่งรูปใหม่ ห้ามยืนยันโรค สั่งยา หรือระบุขนาดยา "
-                "ตอบดัชนีของชุดเพียงค่าเดียว เริ่มจาก 0\n" +
-                "\n".join(f"{index}: " + " | ".join(items) for index, items in enumerate(choices))
-            )}]}],
+            "contents": [{"parts": [{"text": build_advice_prompt(label, choices)}]}],
             "generationConfig": {
                 "maxOutputTokens": 256,
                 "responseMimeType": "application/json",
@@ -79,17 +67,10 @@ def care_advice(label: str) -> dict:
                 },
             },
         }
-        request = Request(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent",
-            data=json.dumps(body, ensure_ascii=False).encode(),
-            headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
-        )
-        with urlopen(request, timeout=7) as response:
-            candidate = json.load(response)["candidates"][0]
-        if candidate.get("finishReason") != "STOP":
+        result = generate_json(body, api_key=api_key, timeout=ADVICE_TIMEOUT, opener=opener)
+        if result is None:
             return fallback
-        parts = candidate["content"]["parts"]
-        choice = json.loads("".join(part.get("text", "") for part in parts if not part.get("thought")))["choice"]
+        choice = result["choice"]
         if type(choice) is int and 0 <= choice < len(choices):
             return {"items": list(choices[choice]), "source": "gemini"}
     except (OSError, ValueError, KeyError, IndexError, TypeError):

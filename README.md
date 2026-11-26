@@ -60,7 +60,8 @@ The system operates via a **Two-stage AI Pipeline**
 ```text
 frontend/          React + Vite: app, features, shared, public assets
 pet-health-ai/
-  model/           FastAPI, inference, training, weights (unchanged)
+  model/           FastAPI, inference, training, weights
+    llm/           LLM advice: prompts, Gemini client, services, API router
   database/        SQL and database documentation (unchanged)
 docs/
   frontend-structure.md
@@ -69,6 +70,8 @@ docs/
 
 See [Frontend setup](frontend/README.md), [Frontend structure](docs/frontend-structure.md),
 and [Backend plan](docs/backend-restructure-plan.md).
+
+For LLM work, see [LLM development guide](pet-health-ai/model/llm/README.md).
 
 ---
 

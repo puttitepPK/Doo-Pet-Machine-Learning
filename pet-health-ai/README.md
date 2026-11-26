@@ -22,6 +22,8 @@ Frontend ย้ายไป [`../frontend/`](../frontend/README.md) แล้ว
 
 ## คำแนะนำการดูแลด้วย Gemini
 
+โค้ด LLM อยู่ใน [`model/llm/`](model/llm/README.md) แยก Router, Service, Gemini client, Config, Prompt และ validation แล้ว โดยใช้ API URL เดิม
+
 สร้างคีย์ที่ [Google AI Studio](https://aistudio.google.com/apikey) แล้วรันคำสั่งจากโฟลเดอร์ pet-health-ai
 
 ```powershell
