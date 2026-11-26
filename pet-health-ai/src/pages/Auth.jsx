@@ -105,9 +105,9 @@ export default function Auth({ mode = "login" }) {
       </div>
       <div className="auth-shell">
         <aside className="auth-visual auth-visual-image" aria-label="ภาพสุนัขต้อนรับ">
-          <Link to="/check" className="auth-left-logo" aria-label="Doo Pet x ML ไปหน้าตรวจสุขภาพ">
+          <div className="auth-left-logo">
             <img className="auth-left-logo-image" src="/dogs/doopet-xml-logo-Photoroom.png" alt="Doo Pet x ML" />
-          </Link>
+          </div>
           <div className="auth-mini-bones" aria-hidden="true">
             {Array.from({ length: 8 }, (_, index) => <Bone key={index} className="auth-mini-bone" style={{ '--bone-x': `${[13, 77, 8, 82, 20, 68, 42, 88][index]}%`, '--bone-y': `${[15, 12, 39, 36, 64, 58, 7, 77][index]}%`, '--bone-angle': `${index % 2 ? 28 : -32}deg`, '--bone-delay': `${-index * .8}s` }} />)}
           </div>
@@ -126,9 +126,6 @@ export default function Auth({ mode = "login" }) {
           <Link to="/" className="auth-back">
             <ArrowLeft size={15} /> กลับหน้าหลัก
           </Link>
-          <span className="auth-float float-care">
-            <HeartPulse size={14} /> Healthy & happy
-          </span>
           <span className="auth-float float-ai">
             <Sparkles size={14} /> AI powered care
           </span>
@@ -136,12 +133,17 @@ export default function Auth({ mode = "login" }) {
             <PawPrint size={22} />
           </span>
           <div className="auth-center">
-            <Link to="/" className="auth-logo">
-              <span>
-                <img className="auth-brand-symbol" src="/dogs/doopet-navbar-symbol.png" width="43" height="43" alt="" />
-              </span>
-              Doo Pet <b>× ML</b>
-            </Link>
+            <div className="auth-brand-header">
+              {/* <span className="auth-care-badge">
+                <HeartPulse size={14} aria-hidden="true" /> Healthy & happy
+              </span> */}
+              <div className="auth-logo">
+                <span>
+                  <img className="auth-brand-symbol" src="/dogs/doopet-navbar-symbol.png" width="43" height="43" alt="" />
+                </span>
+                Doo Pet <b>× ML</b>
+              </div>
+            </div>
             <p className="auth-tagline">
               พื้นที่เล็ก ๆ เพื่อสุขภาพที่ดีของเพื่อนซี้
             </p>
