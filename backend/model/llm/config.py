@@ -11,7 +11,7 @@ TIP_MAX = 220
 
 
 def load_environment():
-    """Keep process env > pet-health-ai/.env.local > model/.env.local."""
+    """Keep process env > backend/.env.local > model/.env.local."""
     from dotenv import load_dotenv
 
     model_dir = Path(__file__).resolve().parents[1]

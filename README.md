@@ -9,7 +9,7 @@ Run both the Backend and Frontend servers concurrently in **two separate termina
 ### 1. Backend Server (Python FastAPI)
 1. Open Terminal 1 and navigate to the `model` directory:
    ```bash
-   cd pet-health-ai/model
+   cd backend/model
    ```
 2. Install Python dependencies (first-time only):
    ```bash
@@ -59,7 +59,7 @@ The system operates via a **Two-stage AI Pipeline**
 
 ```text
 frontend/          React + Vite: app, features, shared, public assets
-pet-health-ai/
+backend/
   model/           FastAPI, inference, training, weights
     llm/           LLM advice: prompts, Gemini client, services, API router
   database/        SQL and database documentation (unchanged)
@@ -71,7 +71,7 @@ docs/
 See [Frontend setup](frontend/README.md), [Frontend structure](docs/frontend-structure.md),
 and [Backend plan](docs/backend-restructure-plan.md).
 
-For LLM work, see [LLM development guide](pet-health-ai/model/llm/README.md).
+For LLM work, see [LLM development guide](backend/model/llm/README.md).
 
 ---
 

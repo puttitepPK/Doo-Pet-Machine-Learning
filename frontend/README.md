@@ -22,12 +22,12 @@ npm run dev
 
 Vite ใช้ Environment ข้าง `frontend/package.json` ไม่ได้โหลด `.env.local` ที่ราก Repository
 ห้ามใส่ Gemini key หรือ Supabase service role key ในค่า `VITE_*`
-Backend ยังใช้ `pet-health-ai/.env.local` หรือ `pet-health-ai/model/.env.local` ตามเดิม
+Backend ยังใช้ `backend/.env.local` หรือ `backend/model/.env.local` ตามเดิม
 
 เปิดอีก Terminal จากราก Repository:
 
 ```powershell
-cd pet-health-ai/model
+cd backend/model
 python main.py
 ```
 
@@ -49,7 +49,7 @@ SSR smoke ใช้ข้อมูลบัญชีจำลองเฉพา�
 
 ## Supabase และเส้นทาง
 
-คำแนะนำฐานข้อมูลเดิมอยู่ใน [pet-health-ai/README.md](../pet-health-ai/README.md)
+คำแนะนำฐานข้อมูลเดิมอยู่ใน [backend/README.md](../backend/README.md)
 ตั้ง Site URL และ Redirect URLs ใน Supabase ให้ตรงกับเว็บ เช่น `http://localhost:5173/`
 การย้ายครั้งนี้ไม่ต้องเปลี่ยน schema หรือรัน SQL เพิ่ม
 ข้อมูลบัญชี ประวัติ และรูปผู้ใช้ยังใช้ Supabase Auth, RPC และ private bucket `doo-pet-skin` เดิม

@@ -24,13 +24,13 @@ Frontend ย้ายไป [`../frontend/`](../frontend/README.md) แล้ว
 
 โค้ด LLM อยู่ใน [`model/llm/`](model/llm/README.md) แยก Router, Service, Gemini client, Config, Prompt และ validation แล้ว โดยใช้ API URL เดิม
 
-สร้างคีย์ที่ [Google AI Studio](https://aistudio.google.com/apikey) แล้วรันคำสั่งจากโฟลเดอร์ pet-health-ai
+สร้างคีย์ที่ [Google AI Studio](https://aistudio.google.com/apikey) แล้วรันคำสั่งจากโฟลเดอร์ backend
 
 ```powershell
 python -m pip install -r model/requirements.txt
 # ตั้ง GEMINI_API_KEY ใน .env.local ของโฟลเดอร์นี้ หรือใน Environment ของ Backend
 ```
 
-ใส่คีย์ของคุณหลัง GEMINI_API_KEY= ใน `pet-health-ai/.env.local` แล้วเริ่ม FastAPI ด้วย `python model/main.py` ส่วนไฟล์ `.env.local` ถูกละเว้นจาก Git หากตั้ง GEMINI_API_KEY ใน PowerShell หรือเซิร์ฟเวอร์ไว้ด้วย ระบบจะใช้ค่านั้นก่อน โดย `model/.env.local` ยังใช้เป็นค่ารองได้ ห้ามใส่คีย์นี้ใน `frontend/` หรือใช้ชื่อ `VITE_GEMINI_API_KEY`
+ใส่คีย์ของคุณหลัง GEMINI_API_KEY= ใน `backend/.env.local` แล้วเริ่ม FastAPI ด้วย `python model/main.py` ส่วนไฟล์ `.env.local` ถูกละเว้นจาก Git หากตั้ง GEMINI_API_KEY ใน PowerShell หรือเซิร์ฟเวอร์ไว้ด้วย ระบบจะใช้ค่านั้นก่อน โดย `model/.env.local` ยังใช้เป็นค่ารองได้ ห้ามใส่คีย์นี้ใน `frontend/` หรือใช้ชื่อ `VITE_GEMINI_API_KEY`
 
 หน้าตรวจจะแสดงผลคัดกรองแล้วขอคำแนะนำจาก FastAPI ถ้าไม่ได้ตั้งคีย์หรือ Gemini ไม่ตอบ ระบบใช้ข้อความสำรองตามกลุ่มผิวหนัง

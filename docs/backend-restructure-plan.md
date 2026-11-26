@@ -2,13 +2,13 @@
 
 ## สถานะและขอบเขต
 
-อัปเดตหลังงาน Frontend: ส่วน LLM แยกอยู่ใน `pet-health-ai/model/llm/` แล้ว มี Router, Service, Gemini client, Config, Prompt และ validation พร้อม Tests แยก
-ดู [คู่มือ LLM](../pet-health-ai/model/llm/README.md) สำหรับโครงสร้างจริงและวิธีพัฒนา แผน `backend/` ด้านล่างยังเป็นข้อเสนอสำหรับงานโมเดลภาพในอนาคต
+อัปเดตหลังงาน Frontend: ส่วน LLM แยกอยู่ใน `backend/model/llm/` แล้ว มี Router, Service, Gemini client, Config, Prompt และ validation พร้อม Tests แยก
+ดู [คู่มือ LLM](../backend/model/llm/README.md) สำหรับโครงสร้างจริงและวิธีพัฒนา แผน `backend/` ด้านล่างยังเป็นข้อเสนอสำหรับงานโมเดลภาพในอนาคต
 `main.py` เปลี่ยนเฉพาะการ bootstrap Environment และเชื่อม Router ของ LLM ส่วน API ภาพ/weights/preprocessing/TTA ไม่เปลี่ยน
 
 สถานะเมื่อจบงาน Frontend เดิม:
 
-ย้ายเฉพาะ Frontend ไป `frontend/` ส่วน FastAPI อยู่ที่ `pet-health-ai/model/main.py`
+ย้ายเฉพาะ Frontend ไป `frontend/` ส่วน FastAPI อยู่ที่ `backend/model/main.py`
 โมเดล, weights, metadata, CLIP guardrail, preprocessing, TTA, training และ `database/` ไม่ถูกแก้ไข
 ไม่ได้เรียก `/learn` ไม่รัน SQL และไม่สร้างหรือลบข้อมูลจริง
 
@@ -71,7 +71,7 @@ backend/
 
 ## Environment
 
-Backend โหลด `pet-health-ai/.env.local` แล้ว `pet-health-ai/model/.env.local` โดย Environment ของ process มาก่อนตาม `load_dotenv(..., override=False)`
+Backend โหลด `backend/.env.local` แล้ว `backend/model/.env.local` โดย Environment ของ process มาก่อนตาม `load_dotenv(..., override=False)`
 คงไฟล์เหล่านี้ไว้ ไม่ย้าย Gemini key ไป Browser
 พบชื่อ `VITE_GEMINI_API_KEY` ใน `.env.local` ที่ราก Repository เดิม คงไฟล์งานเดิมไว้และไม่ได้คัดลอกค่านี้ไป Frontend
 Frontend ใหม่ไม่ได้โหลด Environment จากราก Repository และไม่อ้างชื่อ Gemini key

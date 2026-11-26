@@ -1,5 +1,7 @@
 # โครงสร้าง Frontend Doo Pet
 
+อัปเดต: โฟลเดอร์ Backend เปลี่ยนชื่อจาก `pet-health-ai/` เป็น `backend/` แล้ว คำสั่ง Backend ปัจจุบันใช้ `backend/` ส่วนตารางไฟล์เดิมด้านล่างคงชื่อเก่าไว้เป็นประวัติการย้าย
+
 ## ขอบเขตและสถานะก่อนเริ่ม
 
 ตรวจ Repository จริง ไม่พบ AGENTS.md สถานะ Git ก่อนเริ่มมีเฉพาะ .env.local ที่รากเป็น untracked และคงเนื้อหาไว้
@@ -223,9 +225,9 @@ frontend/
 ```
 
 node_modules/ และ dist/ ถูกละเว้นในต้นไม้ข้างต้นและ Git ส่วน frontend/.env.local ถูกละเว้นเพื่อไม่เผยค่าจริง
-เครื่องทำงานนี้ใช้ junction frontend/node_modules ไปยัง pet-health-ai/node_modules เดิมเพื่อใช้ dependencies ชุดเดิมโดยไม่ติดตั้ง/อัปเกรด
+เครื่องทำงานนี้ใช้ junction frontend/node_modules ไปยัง backend/node_modules เดิมเพื่อใช้ dependencies ชุดเดิมโดยไม่ติดตั้ง/อัปเกรด
 checkout ใหม่ใช้ npm ci ใน frontend/ ได้ตามปกติ ไม่ต้องใช้ junction
-dist เดิมใน pet-health-ai/ คงไว้เป็น local baseline ไม่ใช่ตำแหน่ง Build ใหม่
+dist เดิมใน backend/ คงไว้เป็น local baseline ไม่ใช่ตำแหน่ง Build ใหม่
 
 ## หน้าที่ของแต่ละหมวด
 

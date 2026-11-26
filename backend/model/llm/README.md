@@ -72,15 +72,15 @@ label/score/context ที่ไม่ถูกต้องยังได้ HT
 
 ## Environment และการเปิด Backend
 
-ตั้ง `GEMINI_API_KEY` ใน Environment ของ process หรือ `pet-health-ai/.env.local`
-ลำดับค่าคือ process Environment → `pet-health-ai/.env.local` → `pet-health-ai/model/.env.local`
+ตั้ง `GEMINI_API_KEY` ใน Environment ของ process หรือ `backend/.env.local`
+ลำดับค่าคือ process Environment → `backend/.env.local` → `backend/model/.env.local`
 ไฟล์ Environment เดิมไม่ถูกย้ายหรือแก้ไข และไม่พิมพ์ค่าคีย์ลง log
 ห้ามนำคีย์นี้ไปตั้งชื่อ `VITE_*` หรือวางใน Frontend
 
 จากราก Repository:
 
 ```powershell
-cd pet-health-ai
+cd backend
 python model/main.py
 ```
 
@@ -90,7 +90,7 @@ python model/main.py
 
 ## Tests โดยไม่ใช้คีย์หรือ weights
 
-จาก `pet-health-ai/`:
+จาก `backend/`:
 
 ```powershell
 python -m unittest discover -s model/tests/llm -t . -v
