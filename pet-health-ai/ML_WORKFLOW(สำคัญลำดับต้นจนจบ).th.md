@@ -338,7 +338,7 @@ EfficientNet-B0 ใช้หลักเดียวกัน โดยปรั
 
 ## 15. ผู้ใช้เลือกรูปบนเว็บ แล้ว React ส่งรูปให้ API
 
-หน้าที่ใช้งานจริงคือ `src/pages/Check.jsx` หน้าเว็บตรวจไฟล์ JPG, PNG หรือ WEBP ขนาดไม่เกิน 10 MB แสดงภาพตัวอย่าง และส่งภาพเมื่อผู้ใช้กดเริ่มวิเคราะห์
+หน้าที่ใช้งานจริงคือ `../frontend/src/features/analysis/pages/CheckPage.jsx` โดยแยก `predict()` ไป `../frontend/src/features/analysis/services/prediction-api.js` หน้าเว็บตรวจไฟล์ JPG, PNG หรือ WEBP ขนาดไม่เกิน 10 MB แสดงภาพตัวอย่าง และส่งภาพเมื่อผู้ใช้กดเริ่มวิเคราะห์
 
 ```javascript
 const fd = new FormData();
@@ -500,10 +500,10 @@ API คำนวณผลทั้งสองโมเดลที่โหล�
 | แหล่ง | สิ่งที่ควรดู |
 |---|---|
 | [Copy of DOG image 2.ipynb](https://colab.research.google.com/drive/1bHaiAdfuM1oQ7rKEPgXbwrED-aG4uvG8) | ส่วน Dataset, EDA, Cleaning, รวม ZIP และหัวข้อ 5.1–5.7 สำหรับแบ่งข้อมูล ฝึก ประเมิน และทดสอบภาพ |
-| [model/main.py](<C:/File By Pkpromax/งานการบ้านมหาลัยทุกปี/ปี 4/Project/Project-1/PetHealth/pet-health-ai/model/main.py>) | โหลดน้ำหนัก, CLIP, TTA, `predict_with_model()`, `/predict`, `/compare`, `/learn` |
-| [model/retrain_batch.py](<C:/File By Pkpromax/งานการบ้านมหาลัยทุกปี/ปี 4/Project/Project-1/PetHealth/pet-health-ai/model/retrain_batch.py>) | รวบรวมข้อมูล ฝึกต่อ สำรองและบันทึกน้ำหนัก |
-| [src/pages/Check.jsx](<C:/File By Pkpromax/งานการบ้านมหาลัยทุกปี/ปี 4/Project/Project-1/PetHealth/pet-health-ai/src/pages/Check.jsx>) | `predict()`, `run()`, การรับรูปและแสดงผล |
-| [src/disease-labels.js](<C:/File By Pkpromax/งานการบ้านมหาลัยทุกปี/ปี 4/Project/Project-1/PetHealth/pet-health-ai/src/disease-labels.js>) | แปลงชื่อกลุ่มเป็นภาษาไทย |
-| [src/shared.jsx](<C:/File By Pkpromax/งานการบ้านมหาลัยทุกปี/ปี 4/Project/Project-1/PetHealth/pet-health-ai/src/shared.jsx>) | ข้อมูลตัวอย่าง `HISTORY` และข้อความ `ADVICE` โดยฟังก์ชัน `predict()` ในไฟล์นี้ไม่ใช่ตัวที่หน้าตรวจใช้ |
+| [model/main.py](model/main.py) | โหลดน้ำหนัก, CLIP, TTA, `predict_with_model()`, `/predict`, `/compare`, `/learn` |
+| [model/retrain_batch.py](model/retrain_batch.py) | รวบรวมข้อมูล ฝึกต่อ สำรองและบันทึกน้ำหนัก |
+| [CheckPage.jsx](../frontend/src/features/analysis/pages/CheckPage.jsx) และ [prediction-api.js](../frontend/src/features/analysis/services/prediction-api.js) | `run()`, การรับรูปและแสดงผล; service `predict()` |
+| [disease-labels.js](../frontend/src/shared/constants/disease-labels.js) | แปลงชื่อกลุ่มเป็นภาษาไทย |
+| [demo.js](../frontend/src/features/home/data/demo.js) | ข้อมูลตัวอย่าง `HISTORY` และข้อความ `ADVICE` ที่แยกจาก shared.jsx เดิม ไม่ใช่ข้อมูลจริงและไม่มีผู้เรียกใน runtime ปัจจุบัน |
 
 เอกสารนี้อธิบายเส้นทางตามโค้ดและผลรันที่ตรวจพบ ไม่ได้ยืนยันว่าทุกเส้นทางถูกเรียกใช้งานจริงในอดีต หรือว่าไฟล์น้ำหนักปัจจุบันตรงกับน้ำหนักในผลทดลองเดิมทุกค่า

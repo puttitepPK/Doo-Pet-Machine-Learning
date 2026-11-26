@@ -85,9 +85,10 @@ cd model
 python main.py
 ```
 
-เปิดอีก Terminal ที่โฟลเดอร์โปรเจกต์ แล้วรันหน้าเว็บ:
+เปิดอีก Terminal จากราก Repository แล้วรันหน้าเว็บที่ตำแหน่งใหม่:
 
 ```powershell
+cd frontend
 npm run dev
 ```
 
