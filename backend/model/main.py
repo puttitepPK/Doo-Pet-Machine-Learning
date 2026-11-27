@@ -61,8 +61,10 @@ IDX_TO_CLASS = {idx: cls_name for idx, cls_name in enumerate(CLASSES_LIST)}
 # =========================================================
 MODEL_DIR = Path(__file__).parent
 
-# 1.1 โหลด MobileNetV3-Small (เช็คทั้งชื่อ mobilenet_model.pth และ best_dog_model.pth)
-mobilenet_path = MODEL_DIR / "mobilenet_model.pth"
+# 1.1 โหลด MobileNetV3-Small (เช็คทั้งในโฟลเดอร์ mobilenet/ และระดับ MODEL_DIR)
+mobilenet_path = MODEL_DIR / "mobilenet" / "mobilenet_model.pth"
+if not mobilenet_path.exists():
+    mobilenet_path = MODEL_DIR / "mobilenet_model.pth"
 if not mobilenet_path.exists():
     mobilenet_path = MODEL_DIR / "best_dog_model.pth"
 
@@ -74,8 +76,10 @@ if mobilenet_path.exists():
     model_mobilenet = model_mobilenet.to(device).eval()
     print(f"✅ โหลด MobileNetV3-Small สำเร็จ ({mobilenet_path.name})")
 
-# 1.2 โหลด EfficientNet-B0
-efficientnet_path = MODEL_DIR / "efficientnet_model.pth"
+# 1.2 โหลด EfficientNet-B0 (เช็คทั้งในโฟลเดอร์ b0/ และระดับ MODEL_DIR)
+efficientnet_path = MODEL_DIR / "b0" / "efficientnet_model.pth"
+if not efficientnet_path.exists():
+    efficientnet_path = MODEL_DIR / "efficientnet_model.pth"
 model_efficientnet = None
 efficientnet_is_finetuned = False
 

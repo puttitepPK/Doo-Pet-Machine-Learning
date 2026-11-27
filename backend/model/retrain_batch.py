@@ -127,7 +127,10 @@ class SkinDataset(Dataset):
 # =========================================================
 def load_models():
     # MobileNetV3-Small
-    mob_path = MODEL_DIR / "mobilenet_model.pth"
+    mob_path = MODEL_DIR / "mobilenet" / "mobilenet_model.pth"
+    if not mob_path.exists() and (MODEL_DIR / "mobilenet_model.pth").exists():
+        mob_path = MODEL_DIR / "mobilenet_model.pth"
+    mob_path.parent.mkdir(parents=True, exist_ok=True)
     mob = models.mobilenet_v3_small()
     mob.classifier[3] = nn.Linear(1024, len(CLASSES_LIST))
     if mob_path.exists():
@@ -135,7 +138,10 @@ def load_models():
         print("✅ โหลด MobileNetV3-Small สำเร็จ")
 
     # EfficientNet-B0
-    eff_path = MODEL_DIR / "efficientnet_model.pth"
+    eff_path = MODEL_DIR / "b0" / "efficientnet_model.pth"
+    if not eff_path.exists() and (MODEL_DIR / "efficientnet_model.pth").exists():
+        eff_path = MODEL_DIR / "efficientnet_model.pth"
+    eff_path.parent.mkdir(parents=True, exist_ok=True)
     eff = models.efficientnet_b0()
     eff.classifier[1] = nn.Linear(eff.classifier[1].in_features, len(CLASSES_LIST))
     if eff_path.exists():

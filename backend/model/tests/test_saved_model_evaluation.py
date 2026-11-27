@@ -35,8 +35,15 @@ class SavedCheckpointEvaluationTests(unittest.TestCase):
         self.project = Path(self.temp.name)
         self.work = self.project / "work"
         self.original_hashes = {}
-        for name in ["mobilenet_model.pth", "efficientnet_model.pth"]:
-            source = ROOT / "model" / name
+        self.source_paths = {
+            "mobilenet_model.pth": (ROOT / "model" / "mobilenet" / "mobilenet_model.pth")
+            if (ROOT / "model" / "mobilenet" / "mobilenet_model.pth").exists()
+            else (ROOT / "model" / "mobilenet_model.pth"),
+            "efficientnet_model.pth": (ROOT / "model" / "b0" / "efficientnet_model.pth")
+            if (ROOT / "model" / "b0" / "efficientnet_model.pth").exists()
+            else (ROOT / "model" / "efficientnet_model.pth"),
+        }
+        for name, source in self.source_paths.items():
             self.original_hashes[name] = legacy_file_hash(source)
             shutil.copy2(source, self.project / name)
         rows = []
@@ -59,7 +66,7 @@ class SavedCheckpointEvaluationTests(unittest.TestCase):
 
     def tearDown(self):
         for name,digest in self.original_hashes.items():
-            self.assertEqual(legacy_file_hash(ROOT / "model" / name),digest)
+            self.assertEqual(legacy_file_hash(self.source_paths[name]),digest)
         plt.close("all")
         self.temp.cleanup()
 
