@@ -20,14 +20,15 @@ from fastapi import FastAPI, File, Form, Query, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 if __package__:
-    from .llm.config import load_environment
+    from .llm.config import MODEL, get_api_key, load_environment
     from .llm.router import router as llm_router
 else:
-    from llm.config import load_environment
+    from llm.config import MODEL, get_api_key, load_environment
     from llm.router import router as llm_router
 
 # Preserve the original env precedence before loading inference code.
 load_environment()
+print(f"Gemini care advice | mode=generated_items_v2 | model={MODEL} | key_configured={bool(get_api_key())}", flush=True)
 
 if __package__:
     from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model

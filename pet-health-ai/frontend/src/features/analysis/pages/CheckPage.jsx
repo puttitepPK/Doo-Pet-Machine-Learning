@@ -107,7 +107,7 @@ export default function Check() {
       setState("done");
       const top = predictions[0];
       // The image result above is final; owner context only shapes the advice text.
-      const advice = await loadCareAdvice(top.label, undefined, { score: top.score, ownerContext });
+      const advice = await loadCareAdvice(top.label, undefined, { score: top.score, ownerContext, adviceScope: user?.id ?? 'guest' });
       if (adviceRequest.current === request) setCare(advice);
       if (user && pet) {
         try {
