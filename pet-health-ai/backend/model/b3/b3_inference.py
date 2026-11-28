@@ -14,7 +14,7 @@ from torchvision.transforms import InterpolationMode
 
 # ตั้งค่าโหมด B3 สำหรับหน้าเว็บ แล้วรีสตาร์ต API:
 # True = เปิด TTA ตาม recipe ใน metadata ของ B3, False = ใช้ภาพเดียว
-B3_TTA_OVERRIDE = False  
+B3_TTA_OVERRIDE = True  
 
 B3_NEWADD5_TTA_VIEWS = ["identity", "hflip", "rot-10", "rot+10", "hflip_rot-10", "hflip_rot+10"]
 B3_LEGACY_TTA_RECIPE = "legacy_enhance_v1"

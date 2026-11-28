@@ -229,11 +229,11 @@ export default function History() {
           <span className="history-tab-icon" aria-hidden="true"><ListChecks size={20} /></span>
           <span className="history-tab-text"><b>รายละเอียด</b><small>{status === "ready" ? `${records.length} รายการ` : "รายการประวัติ"}</small></span>
         </button>
-        <button type="button" id="history-tab-tracking" role="tab" aria-selected={view === "tracking"} aria-controls="history-panel" tabIndex={view === "tracking" ? 0 : -1}
+        {/* <button type="button" id="history-tab-tracking" role="tab" aria-selected={view === "tracking"} aria-controls="history-panel" tabIndex={view === "tracking" ? 0 : -1}
           className={view === "tracking" ? "on" : ""} onClick={() => setView("tracking")}>
           <span className="history-tab-icon" aria-hidden="true"><Activity size={20} /></span>
           <span className="history-tab-text"><b>ติดตามอาการ</b><small>เปรียบเทียบและดูแนวโน้ม</small></span>
-        </button>
+        </button> */}
       </nav>
 
       <div id="history-panel" className="history-panel" role="tabpanel" aria-labelledby={`history-tab-${view}`}>
