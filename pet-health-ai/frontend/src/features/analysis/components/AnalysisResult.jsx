@@ -22,6 +22,7 @@ export default function AnalysisResult({ resultHeading, preview, pet, file, top,
             <details className="check-result-details">
               <summary>ดูผลวิเคราะห์เพิ่มเติม</summary>
               <p>3 อันดับที่โมเดลประเมินได้คะแนนสูงสุด</p>
+              {/* 3 อันดับนี้เป็นกลุ่มคำตอบของโมเดลหลัก ไม่ใช่ผลจากโมเดล 3 ตัว */}
               {result.slice(0, 3).map((item) => <div className="check-meter" key={item.label}><div><span>{diseaseName(item.label)}</span><b>{Math.round(item.score * 100)}%</b></div><i><span style={{ width: `${item.score * 100}%` }} /></i></div>)}
             </details>
             <Disclaimer>ผลนี้เป็นการคัดกรองเบื้องต้นเท่านั้น หากสุนัขมีอาการผิดปกติควรพบสัตวแพทย์</Disclaimer>

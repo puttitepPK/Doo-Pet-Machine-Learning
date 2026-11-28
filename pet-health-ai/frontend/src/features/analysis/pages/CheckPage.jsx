@@ -100,9 +100,11 @@ export default function Check() {
     setState("loading"); setErr("");
     try {
       const detailed = Boolean(user && pet);
+      // ส่งเฉพาะรูปไป /predict; ownerContext ใช้ขอคำแนะนำภายหลัง ไม่เปลี่ยนคะแนนภาพ
       const response = await predict(file, detailed);
       const { predictions } = response;
       if (!predictions.length) throw new Error("โมเดลไม่ส่งผลการวิเคราะห์กลับมา");
+      // เก็บผลหลักใน React state เพื่อให้ AnalysisResult.jsx แสดงชื่อกลุ่มและคะแนน
       setResult(predictions);
       setState("done");
       const top = predictions[0];
@@ -111,6 +113,7 @@ export default function Check() {
       if (adviceRequest.current === request) setCare(advice);
       if (user && pet) {
         try {
+          // Frontend นำรูป ผลทุกโมเดล และคำแนะนำไปบันทึก Supabase หลังวิเคราะห์สำเร็จ
           const saved = await saveAnalysis(user.id, pet.id, file, response, predictionRisk(top), advice, ownerContext);
           if (ownerContext && !saved.ownerContextSaved && adviceRequest.current === request) setErr("บันทึกผลตรวจแล้ว แต่ยังบันทึกข้อมูลประกอบไม่ได้ เพราะฐานข้อมูลยังไม่ได้อัปเดต");
         }

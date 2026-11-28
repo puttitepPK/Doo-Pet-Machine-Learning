@@ -29,10 +29,11 @@ else:
 # Preserve the original env precedence before loading inference code.
 load_environment()
 
+# นำเข้าฟังก์ชันจัดการ B3; ยังไม่ได้อ่านน้ำหนัก .pth จนกว่าจะเรียก load_b3_model ด้านล่าง
 if __package__:
     from .b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
 else:
-    from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model
+    from b3.b3_inference import B3_TTA_OVERRIDE, build_b3_batch, get_b3_tta_recipe, load_b3_model # 1. ตอนเปิดระบบ — โหลดโมเดลไว้ก่อน
 
 app = FastAPI(title="Pet Health AI API")
 app.include_router(llm_router)
@@ -45,7 +46,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ใช้ GPU เมื่อ PyTorch ตรวจพบ CUDA ไม่เช่นนั้นใช้ CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# ลำดับคำตอบของโมเดล: คะแนนตำแหน่ง 0–5 ต้องตรงกับชื่อกลุ่มและลำดับตอนฝึก
 CLASSES_LIST = [
     "bacterial_dermatosis",
     "demodicosis",
@@ -59,6 +62,7 @@ IDX_TO_CLASS = {idx: cls_name for idx, cls_name in enumerate(CLASSES_LIST)}
 # =========================================================
 # 1. โหลด 3 โมเดล: MobileNetV3-Small, EfficientNet-B0 และ EfficientNet-B3
 # =========================================================
+# ส่วนโหลดโมเดลทำตอนเริ่ม Backend แล้วเก็บไว้ในหน่วยความจำ ไม่โหลดใหม่ทุกคำขอ
 MODEL_DIR = Path(__file__).parent
 
 # 1.1 โหลด MobileNetV3-Small (เช็คทั้งในโฟลเดอร์ mobilenet/ และระดับ MODEL_DIR)
@@ -70,6 +74,7 @@ if not mobilenet_path.exists():
 
 model_mobilenet = None
 if mobilenet_path.exists():
+    # สร้างโครงสร้าง เปลี่ยนหัวคำตอบเป็น 6 กลุ่ม แล้วอ่านน้ำหนักที่ฝึกไว้
     model_mobilenet = models.mobilenet_v3_small()
     model_mobilenet.classifier[3] = nn.Linear(1024, len(CLASSES_LIST))
     model_mobilenet.load_state_dict(torch.load(mobilenet_path, map_location=device))
@@ -87,6 +92,7 @@ if efficientnet_path.exists():
     sd_eff = torch.load(efficientnet_path, map_location=device)
     model_efficientnet = models.efficientnet_b0()
     in_features = model_efficientnet.classifier[1].in_features
+    # ตรวจจำนวนคำตอบในน้ำหนัก B0; ถ้ามี 6 กลุ่มจึงเข้าเงื่อนไข is_finetuned ของระบบ
     out_classes = sd_eff["classifier.1.weight"].shape[0]
 
     if out_classes == len(CLASSES_LIST):
@@ -103,7 +109,7 @@ if efficientnet_path.exists():
 
     model_efficientnet = model_efficientnet.to(device).eval()
 
-# 1.3 โหลด B3 ที่ประเมินแล้ว พร้อมตรวจลำดับกลุ่มและ SHA-256 ของน้ำหนัก
+# 1.3 โหลด B3 ที่ประเมินแล้ว พร้อมตรวจลำดับกลุ่มและ SHA-256 ของน้ำหนัก # จากนั้นกำหนดโฟลเดอร์และเรียกโหลด
 B3_DIR = MODEL_DIR / "b3"
 efficientnet_b3_path = B3_DIR / "efficientnet_b3_model.pth"
 model_efficientnet_b3 = None
@@ -112,9 +118,11 @@ b3_metadata = None
 b3_default_tta = False
 b3_tta_recipe = None
 if efficientnet_b3_path.exists():
+    # รับกลับ 3 อย่าง: B3 พร้อมน้ำหนัก, วิธีเตรียมภาพ, และข้อมูล metadata
     model_efficientnet_b3, b3_transforms, b3_metadata = load_b3_model(
         B3_DIR, device, CLASSES_LIST,
     )
+    # เปิด/ปิด TTA ตามค่าจาก b3_inference.py ไม่ได้เปิดตามผลเลือกโหมดใน metadata อัตโนมัติ
     b3_default_tta = B3_TTA_OVERRIDE
     b3_tta_recipe = get_b3_tta_recipe(b3_metadata)
     print(f"✅ โหลด EfficientNet-B3 สำเร็จ ({efficientnet_b3_path.name}, 300×300, TTA default={b3_default_tta}, recipe={b3_tta_recipe})")
@@ -122,6 +130,7 @@ if efficientnet_b3_path.exists():
 # =========================================================
 # 2. โหลดโมเดล CLIP Guardrail คัดกรองรูปสุนัข/แผลสุนัข
 # =========================================================
+# CLIP เปรียบเทียบภาพกับข้อความเพื่อคัดกรองก่อนจำแนกโรค ไม่ได้ยืนยันชนิดสัตว์ได้ 100%
 clip_model_name = "openai/clip-vit-base-patch32"
 clip_model = CLIPModel.from_pretrained(clip_model_name).to(device)
 clip_processor = CLIPProcessor.from_pretrained(clip_model_name)
@@ -130,6 +139,7 @@ clip_model.eval()
 NORM_MEAN = [0.485, 0.456, 0.406]
 NORM_STD = [0.229, 0.224, 0.225]
 
+# วิธีเตรียมภาพสำหรับ MobileNet/B0 เท่านั้น; B3 มี transforms ของตัวเองจาก metadata
 inference_transforms = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -269,7 +279,9 @@ def predict_with_model(m: nn.Module, input_batch: torch.Tensor):
     ทำนายผลด้วยชุดภาพ TTA (หลายสภาพแสง/ความชัด) แล้วเฉลี่ยความน่าจะเป็น
     """
     with torch.no_grad():
+        # จุดนำภาพเข้าโมเดลจริง; no_grad ไม่เก็บกราฟสำหรับฝึก และขั้นนี้ไม่ปรับน้ำหนัก
         outputs = m(input_batch)
+        # แปลงเป็นคะแนนแต่ละกลุ่มแล้วเฉลี่ยข้ามมุม TTA; ถ้ามีภาพเดียวก็ใช้คะแนนภาพนั้น
         probabilities = torch.softmax(outputs.float(), dim=1).mean(dim=0)
     results = [
         {"label": IDX_TO_CLASS[i], "score": round(float(prob.item()), 4)}
@@ -279,6 +291,8 @@ def predict_with_model(m: nn.Module, input_batch: torch.Tensor):
     return results
 
 
+# Frontend ส่ง FormData ช่องชื่อ image มาที่ POST /predict
+# ไม่ระบุ model_type จะใช้ auto; details=true ขอข้อมูลเพิ่มเพื่อบันทึกประวัติ
 @app.post("/predict")
 async def predict_endpoint(
     image: UploadFile = File(...),
@@ -290,6 +304,7 @@ async def predict_endpoint(
     ),
     details: bool = False,
 ):
+    # อ่านไฟล์จากคำขอ HTTP; ข้อมูลนี้คือภาพใหม่ ไม่ใช่น้ำหนักโมเดล
     image_bytes = await image.read()
     try:
         pil_img = ImageOps.exif_transpose(Image.open(io.BytesIO(image_bytes))).convert("RGB")
@@ -304,6 +319,7 @@ async def predict_endpoint(
         )
 
     # ด่านที่ 2: ทำนายด้วย TTA Batch (6 มุมมอง/สภาพแสง) เพื่อให้ตอบได้แม่นยำแม้ภาพไม่ชัด
+    # สร้างภาพ 6 มุมขนาด 224×224 สำหรับ MobileNet/B0; B3 เตรียมแยกด้านล่าง
     tta_batch = build_tta_batch(pil_img)
 
     elapsed = {}
@@ -314,13 +330,15 @@ async def predict_endpoint(
         elapsed[name] = round((perf_counter() - started) * 1000)
         return scores
 
+    # เรียกทีละตัวเพื่อเปรียบเทียบผล ไม่ใช่การโหวตหรือเฉลี่ยคะแนนระหว่างโมเดล
     res_mobilenet = evaluate("mobilenet", model_mobilenet, tta_batch) if model_mobilenet else None
     res_efficientnet = evaluate("efficientnet", model_efficientnet, tta_batch) if model_efficientnet else None
-    # B3 ใช้ recipe ที่ประเมินไว้ใน metadata ของ checkpoint
+    # B3 ใช้ recipe ที่ประเมินไว้ใน metadata ของ checkpoint 
+    # หากคำขอระบุ b3_tta จะใช้ค่านั้นแทนค่าเริ่มต้น; หน้าเว็บปัจจุบันไม่ส่งค่านี้
     use_b3_tta = b3_default_tta if b3_tta is None else b3_tta
     res_efficientnet_b3 = None
     if model_efficientnet_b3 is not None:
-        b3_batch = build_b3_batch(pil_img, b3_transforms, device, use_tta=use_b3_tta,
+        b3_batch = build_b3_batch(pil_img, b3_transforms, device, use_tta=use_b3_tta, 
                                   tta_recipe=b3_tta_recipe)
         res_efficientnet_b3 = evaluate("efficientnet_b3", model_efficientnet_b3, b3_batch)
 
@@ -341,6 +359,7 @@ async def predict_endpoint(
     print("=" * 58 + "\n")
 
     if details:
+        # เรียงโมเดลสำหรับบันทึก: B3 → B0 ที่มี 6 กลุ่ม → MobileNet
         candidates = (
             ("efficientnet_b3", efficientnet_b3_path, res_efficientnet_b3,
              ("b3-300-newadd5-six-view-v1" if b3_tta_recipe == "newadd5_rotation_v1"
@@ -363,16 +382,19 @@ async def predict_endpoint(
                 "inference_ms": elapsed[name],
                 "scores": [by_label[label] for label in CLASSES_LIST],
             })
+        # auto เลือกตัวแรกที่มีผลตามลำดับ candidates ไม่เลือกจากคะแนนสูงสุดข้ามโมเดล
         selected = next((run for run in runs if model_type == "auto" or run["model_name"] == model_type), None)
         if selected is None:
             raise HTTPException(status_code=503, detail="ไม่พบโมเดลที่ฝึกแล้วสำหรับบันทึกผลตรวจ")
         return {
+            # predictions คือผลหลัก; runs เก็บผลแต่ละโมเดลสำหรับบันทึกประวัติ
             "selected_model": selected["model_name"],
             "runs": runs,
             "predictions": sorted(selected["scores"], key=lambda item: (-item["score"], item["label"])),
             "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
         }
 
+    # สำหรับคำขอที่ไม่ใช้ details: both/all ส่งผลแยกครบทุกโมเดลที่โหลดได้
     if model_type in ("both", "all"):
         return {
             "mobilenet": res_mobilenet,
