@@ -35,10 +35,12 @@ def load_b3_model(model_dir, device, expected_classes):
     model_dir = Path(model_dir)
     weights_path = model_dir / "efficientnet_b3_model.pth"
     metadata_path = model_dir / "efficientnet_b3_metadata.json"
+    # JSON เป็นคู่มือกำกับ ส่วน .pth เป็นน้ำหนัก; ต้องใช้คู่ที่ตรงกัน
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 
     if metadata.get("architecture") != "efficientnet_b3":
         raise ValueError("B3 metadata must identify the efficientnet_b3 architecture")
+    # เทียบลำดับกลุ่มกับ main.py เพื่อไม่ให้คะแนนถูกแปลเป็นชื่อกลุ่มผิด
     classes = list(expected_classes)
     if metadata.get("class_names") != classes:
         raise ValueError("B3 class order does not match the API class order")
@@ -64,6 +66,7 @@ def load_b3_model(model_dir, device, expected_classes):
             or not all(value > 0 for value in std)):
         raise ValueError("Invalid B3 normalization")
 
+    # SHA-256 ตรวจว่าไฟล์น้ำหนักตรงกับ metadata; ถ้าไม่ตรงจะหยุดโหลดด้วยข้อผิดพลาด
     expected_hash = metadata.get("weights_sha256")
     if not expected_hash:
         raise ValueError("B3 metadata must include the SHA-256 of the evaluated weights")
@@ -74,16 +77,20 @@ def load_b3_model(model_dir, device, expected_classes):
     if digest.hexdigest() != expected_hash:
         raise ValueError("B3 weights do not match the evaluated checkpoint in its metadata")
 
+    # สร้างโครงสร้างเปล่าก่อน แล้วใส่น้ำหนักจาก .pth ในคำสั่ง load_state_dict ด้านล่าง
     model = models.efficientnet_b3(weights=None)
     model.classifier[1] = nn.Linear(model.classifier[1].in_features, len(classes))
     model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True), strict=True) # บรรทัดที่อ่าน .pth จริง ๆ คือ torch.load(...)
+    # eval ตั้งพฤติกรรมชั้นโมเดลสำหรับทำนาย; main.py ใช้ no_grad ตอนคำนวณอีกชั้นหนึ่ง
     model = model.to(device).eval()
+    # ใช้ค่าใน metadata: ด้านสั้น 320 → ตัดกลาง 300×300 → Tensor → Normalize
     preprocessing_transform = transforms.Compose([
         transforms.Resize(resize, interpolation=InterpolationMode.BICUBIC),
         transforms.CenterCrop(crop),
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std),
     ])
+    # main.py รับไปเก็บใน model_efficientnet_b3, b3_transforms และ b3_metadata ตามลำดับ
     return model, preprocessing_transform, metadata
 
 # 	ปรับแสงและความคมเบื้องต้น
@@ -108,6 +115,7 @@ def build_b3_views(image, use_tta=False, tta_recipe=B3_LEGACY_TTA_RECIPE):
     if tta_recipe not in (B3_LEGACY_TTA_RECIPE, B3_NEWADD5_TTA_RECIPE):
         raise ValueError("Unsupported B3 TTA recipe")
     image = ImageOps.exif_transpose(image).convert("RGB")
+    # Single ใช้ภาพเดียว; ถ้าเปิด TTA จึงสร้างหลายมุมเพื่อเฉลี่ยคะแนน ไม่ได้ฝึกเพิ่ม
     if not use_tta:
         return [image]
     if tta_recipe == B3_NEWADD5_TTA_RECIPE:
@@ -128,6 +136,7 @@ def build_b3_views(image, use_tta=False, tta_recipe=B3_LEGACY_TTA_RECIPE):
 def build_b3_batch(image: Image.Image, preprocessing_transform, device, use_tta=False,
                    tta_recipe=B3_LEGACY_TTA_RECIPE):
     """Prepare checkpoint-specific views with B3's own 300x300 transform."""
+    # เตรียม Tensor รวมทุกมุม แล้วส่งกลับให้ main.py นำเข้าโมเดล B3
     views = build_b3_views(image, use_tta=use_tta, tta_recipe=tta_recipe)
     return torch.stack([preprocessing_transform(view) for view in views]).to(device)
 
