@@ -125,7 +125,7 @@ export default function Dropdown({
           );
         })}
       </ul>,
-      document.body,
+      triggerRef.current?.closest("dialog[open]") ?? document.body,
     )}
   </>;
 }
