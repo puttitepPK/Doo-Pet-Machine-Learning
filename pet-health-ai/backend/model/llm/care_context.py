@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Claims the tips must never make (diagnosis, cause, contagion, allergy conclusions, dosing, links).
 BANNED = re.compile(
     r"แพ้อาหาร|แพ้แชมพู|แพ้ที่นอน|เป็นโรค|ยืนยันว่า|วินิจฉัย|สาเหตุคือ|สาเหตุมาจาก|เกิดจาก|ติดต่อ|ติดเชื้อจาก|ติดมาจาก|"
-    r"\d+\s*(มก|มล|mg|ml|ซีซี|เม็ด|cc)|ขนาดยา|ให้ยา|กินยา|ทายา\S*ชื่อ|https?://|www\.",
+    r"\d+\s*(มก|มล|mg|ml|ซีซี|เม็ด|cc)|ขนาดยา|https?://|www\.",
     re.IGNORECASE,
 )
 THAI = re.compile(r"[฀-๿]")
@@ -59,8 +59,37 @@ def fallback_tips(context):
     return tips[:MAX_TIPS]
 
 
+def tip_validation_reason(text):
+    """Return a fixed diagnostic code, without exposing any generated or owner text."""
+    if not isinstance(text, str) or not text.strip():
+        return "empty_or_non_text"
+    if len(text.strip()) > TIP_MAX:
+        return "text_too_long"
+    if not THAI.search(text):
+        return "missing_thai_text"
+    # Contacting a vet is care advice, not a claim that the condition is contagious.
+    checked = re.sub(r"ติดต่อ(?:สัตวแพทย์|คลินิก)", "ปรึกษาสัตวแพทย์", text)
+    # Referring the owner to a vet for diagnosis does not diagnose the dog here.
+    checked = re.sub(
+        r"((?:ให้|พบ|ปรึกษา|ตรวจโดย|ตรวจจาก)[^.!?;\n]{0,35}สัตวแพทย์[^.!?;\n]{0,25})วินิจฉัย(?!\s*ว่า)",
+        r"\1ประเมิน", checked,
+    )
+    checked = re.sub(r"วินิจฉัย(?=(?:โดย|จาก)สัตวแพทย์)", "ประเมิน", checked)
+    if BANNED.search(checked):
+        return "unsafe_claim_dose_or_link"
+    # Permit cautions such as "งดใช้แชมพูยาเอง", but reject instructions to use medication.
+    # "และ" and commas can continue a prohibition's list: do not discard its negation.
+    # A contrast or a new positive directive starts a separate clause.
+    for clause in re.split(r"[.!?;\n]|แต่|แล้ว|จากนั้น|และ(?=ควร|แนะนำ|ต้อง)", checked):
+        for action in re.finditer(r"(?:ใช้|ทา|กิน|ให้|รับประทาน)(?:ยา|แชมพูยา|ครีมยา)", clause):
+            prefix = clause[:action.start()]
+            if not re.search(r"หลีกเลี่ยง|งด|ห้าม|อย่า|ไม่ควร|ไม่แนะนำ|ไม่ให้", prefix):
+                return "medication_instruction"
+    return None
+
+
 def valid_tip(text):
-    return isinstance(text, str) and 0 < len(text.strip()) <= TIP_MAX and THAI.search(text) and not BANNED.search(text)
+    return tip_validation_reason(text) is None
 
 
 def context_tips(label_code, score, context, *, opener=None, api_key=None):

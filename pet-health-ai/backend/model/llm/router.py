@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, HTTPException
 from .care_advice import OPTIONS
 from .owner_context import OwnerContextError, normalize_owner_context
 from .service import general_advice, advice_with_context
+from .variation import STYLES, normalize_previous
 
 router = APIRouter()
 
@@ -32,6 +33,15 @@ def post_care_advice(payload: dict = Body(...)):
         context = normalize_owner_context(payload.get("owner_context"))
     except OwnerContextError as error:
         raise HTTPException(status_code=422, detail=str(error))
+    if "previous_advice" in payload or "variation_index" in payload:
+        try:
+            previous = normalize_previous(payload.get("previous_advice"))
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error))
+        index = payload.get("variation_index")
+        if index is not None and (type(index) is not int or not 0 <= index < len(STYLES)):
+            raise HTTPException(status_code=422, detail="แนวการเขียนไม่ถูกต้อง")
+        return advice_with_context(label, score, context, previous=previous, variation_index=index)
     return advice_with_context(label, score, context)
 
 

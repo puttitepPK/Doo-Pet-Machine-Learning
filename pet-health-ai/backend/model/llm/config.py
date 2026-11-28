@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 MODEL = "gemini-3.5-flash-lite"
-ADVICE_TIMEOUT = 7
+ADVICE_TIMEOUT = 18
 CONTEXT_TIMEOUT = 8
 ADVICE_CONCURRENCY = 2
 MAX_TIPS = 3

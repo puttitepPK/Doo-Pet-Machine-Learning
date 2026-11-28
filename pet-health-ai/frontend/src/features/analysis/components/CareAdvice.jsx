@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { careHeadings, loadCareAdvice } from "../services/care-advice.js";
+import { useAuth } from "../../auth/hooks/useAuth.js";
 
 export default function CareAdvice({ disease, saved }) {
+  const { user } = useAuth();
   const [loaded, setLoaded] = useState(null);
   const care = saved ?? loaded;
   const tips = Array.isArray(care?.context_tips?.items) ? care.context_tips.items.filter((tip) => typeof tip === "string" && tip.trim()) : [];
@@ -9,11 +11,11 @@ export default function CareAdvice({ disease, saved }) {
   useEffect(() => {
     if (saved !== undefined) return;
     const controller = new AbortController();
-    void loadCareAdvice(disease, controller.signal).then(result => {
+    void loadCareAdvice(disease, controller.signal, { adviceScope: user?.id ?? 'guest' }).then(result => {
       if (!controller.signal.aborted) setLoaded(result);
     });
     return () => controller.abort();
-  }, [disease, saved]);
+  }, [disease, saved, user?.id]);
 
   return <>
     <h3>คำแนะนำการดูแลเบื้องต้น</h3>

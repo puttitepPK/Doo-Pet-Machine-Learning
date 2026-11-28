@@ -59,6 +59,23 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status, 200)
         self.assertEqual(data["context_tips"]["source"], "fallback")
 
+    async def test_session_hints_keep_the_existing_response_contract(self):
+        previous = {"items": ["สังเกตผิว", "ดูแลเบื้องต้น", "เลี่ยงขัดถู"]}
+        with patch("model.llm.router.advice_with_context", return_value={"items": previous["items"], "source": "gemini", "owner_context": None, "context_tips": None}) as service:
+            status, data = await self.request("POST", body={"label": "healthy", "score": 0.8, "previous_advice": previous, "variation_index": 2})
+        self.assertEqual(status, 200)
+        service.assert_called_once_with("healthy", 0.8, None, previous=previous, variation_index=2)
+        self.assertEqual(set(data), {"items", "source", "owner_context", "context_tips"})
+
+    async def test_invalid_session_hints_are_rejected(self):
+        cases = [{"variation_index": x} for x in (-1, 6, True, "1")]
+        cases += [{"previous_advice": {"items": ["x"]}}, {"previous_advice": {"notes": "private"}}]
+        for extra in cases:
+            with self.subTest(extra=extra), patch("model.llm.router.advice_with_context") as service:
+                status, _ = await self.request("POST", body={"label": "healthy", **extra})
+                self.assertEqual(status, 422)
+                service.assert_not_called()
+
     async def test_invalid_labels_keep_422(self):
         for method in ("GET", "POST"):
             with self.subTest(method=method):

@@ -20,14 +20,15 @@ from fastapi import FastAPI, File, Form, Query, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 if __package__:
-    from .llm.config import load_environment
+    from .llm.config import MODEL, get_api_key, load_environment
     from .llm.router import router as llm_router
 else:
-    from llm.config import load_environment
+    from llm.config import MODEL, get_api_key, load_environment
     from llm.router import router as llm_router
 
 # Preserve the original env precedence before loading inference code.
 load_environment()
+print(f"Gemini care advice | mode=generated_items_v2 | model={MODEL} | key_configured={bool(get_api_key())}", flush=True)
 
 # นำเข้าฟังก์ชันจัดการ B3; ยังไม่ได้อ่านน้ำหนัก .pth จนกว่าจะเรียก load_b3_model ด้านล่าง
 if __package__:
