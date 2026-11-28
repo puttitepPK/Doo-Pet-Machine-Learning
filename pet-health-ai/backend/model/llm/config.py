@@ -8,6 +8,7 @@ CONTEXT_TIMEOUT = 8
 ADVICE_CONCURRENCY = 2
 MAX_TIPS = 3
 TIP_MAX = 220
+#เทส
 
 
 def load_environment():
